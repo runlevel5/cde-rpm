@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=CDE
+DesktopNames=CDE
+Comment=Common Desktop Environment session
+Keywords=Common Desktop Environment
+Exec=/usr/bin/Xsession
+TryExec=/usr/bin/dtwm
+Icon=Dtlogo
+Type=Application

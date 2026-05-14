@@ -1,0 +1,38 @@
+From: Trung Le <trung.le@ruby-journal.com>
+Subject: include: add config.h stub forwarding to cde_config.h
+
+Fedora's motif-devel ships private (P-suffix) headers — e.g.
+Xm/DisplayP.h — that begin with:
+
+  #ifdef HAVE_CONFIG_H
+  #include <config.h>
+  #endif
+
+CDE compiles with -DHAVE_CONFIG_H (it owns include/cde_config.h via
+AC_CONFIG_HEADERS), so when DtWidget pulls in Xm/DisplayP.h the Motif
+header tries to include a config.h that doesn't exist on the search
+path, breaking the build:
+
+  /usr/include/Xm/DisplayP.h:27:10: fatal error: config.h: No such
+  file or directory
+
+Provide a tiny stub at include/config.h that forwards to cde_config.h.
+The directory is already on the include search path via -I../../include
+in the per-Makefile flags, so Motif's lookup resolves to this stub
+without changing CDE's own include strategy.
+---
+ include/config.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+ create mode 100644 include/config.h
+
+diff --git a/include/config.h b/include/config.h
+new file mode 100644
+--- /dev/null
++++ b/include/config.h
+@@ -0,0 +1,6 @@
++/*
++ * Stub so Motif's private (P-suffix) headers can resolve <config.h>.
++ * CDE itself uses cde_config.h (see AC_CONFIG_HEADERS in configure.ac);
++ * this file just forwards the include for the benefit of motif-devel.
++ */
++#include "cde_config.h"

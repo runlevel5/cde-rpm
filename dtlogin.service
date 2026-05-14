@@ -1,0 +1,15 @@
+[Unit]
+Description=CDE Display Manager (dtlogin)
+Documentation=man:dtlogin(1)
+After=systemd-user-sessions.service plymouth-quit.service rpcbind.service
+Wants=rpcbind.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/dtlogin -nodaemon
+Restart=always
+
+[Install]
+Alias=display-manager.service

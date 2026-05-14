@@ -1,0 +1,28 @@
+From: Trung Le <trung.le@ruby-journal.com>
+Subject: dthelp: drop K&R-era strstr() redeclaration
+
+The dthelp pass2/htag2 helper redeclares strstr() with a K&R-era
+prototype. On modern glibc, <string.h> declares strstr() through a
+_Generic macro for type-safe const handling, and the redeclaration in
+fproto.h triggers:
+
+  fproto.h:34:7: error: expected identifier or '(' before '_Generic'
+
+The standard declaration from <string.h> (already pulled in via
+userinc.h -> stdio.h -> features.h) is correct and sufficient.
+---
+ programs/dthelp/parser/pass2/htag2/fproto.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/programs/dthelp/parser/pass2/htag2/fproto.h b/programs/dthelp/parser/pass2/htag2/fproto.h
+--- a/programs/dthelp/parser/pass2/htag2/fproto.h
++++ b/programs/dthelp/parser/pass2/htag2/fproto.h
+@@ -31,7 +31,7 @@ void setopt(char *string, LOGICAL filelenonly);
+
+ LOGICAL setvalopt(int thisopt, char *string, LOGICAL filelenonly);
+
+-char *strstr(const char *s1, const char *s2);
++/* strstr() comes from <string.h>; modern glibc declares it via _Generic */
+
+ char *MakeMByteString(const M_WCHAR *from);
+
