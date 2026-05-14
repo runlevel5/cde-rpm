@@ -68,6 +68,54 @@ The script tries `make dist` first; if that fails (or the source tree
 isn't autoreconf'd), it falls back to `git archive HEAD | xz` to produce
 the source tarball.
 
+Starting a CDE session
+----------------------
+
+There are two ways to log into CDE on Fedora.
+
+### Option 1: `startx` from a TTY (no display manager change needed)
+
+Drop in a `~/.xinitrc` that hands control to CDE's session bootstrap:
+
+    cat > ~/.xinitrc <<'EOF'
+    #!/bin/sh
+    # Launch the Common Desktop Environment session via CDE Xsession bootstrap.
+    exec /usr/bin/Xsession
+    EOF
+    chmod +x ~/.xinitrc
+
+If you don't already have one, copy CDE's user profile template:
+
+    cp /usr/dt/config/sys.dtprofile ~/.dtprofile
+
+Then from a text console:
+
+    startx
+
+`Xsession` performs the same bootstrap dtlogin would (sets `LANG`,
+sources `~/.dtprofile`, applies X resources, starts ToolTalk) and then
+execs `dtsession`, the actual session manager. Errors land in
+`~/.xsession-errors` and `/var/dt/Xerrors`.
+
+### Option 2: `dtlogin` as the system display manager
+
+This replaces gdm/sddm with CDE's own login screen. Reboot required.
+
+    systemctl status dtlogin                 # currently disabled
+    sudo systemctl disable gdm.service       # or sddm/lightdm
+    sudo systemctl enable dtlogin.service
+    sudo reboot
+
+The package installs `/usr/lib/systemd/system/dtlogin.service` aliased
+as `display-manager.service`, so only one display manager can be
+enabled at a time. Logs go to `/var/dt/`.
+
+To go back to gdm:
+
+    sudo systemctl disable dtlogin.service
+    sudo systemctl enable gdm.service
+    sudo reboot
+
 Patches
 -------
 
