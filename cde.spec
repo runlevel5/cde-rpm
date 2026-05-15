@@ -34,6 +34,10 @@ Patch0:         0001-fproto-drop-strstr-redeclaration.patch
 # Add an include/config.h stub that forwards to cde_config.h, so Motif's
 # private headers (Xm/DisplayP.h etc.) can resolve <config.h>.
 Patch1:         0002-include-config-h-stub-for-motif.patch
+# Make CDE_INSTALLATION_TOP / CDE_CONFIGURATION_TOP / CDE_LOGFILES_TOP
+# overridable via --with-cde-{config,state,libexec,data}-dir flags.
+# Required to put /etc/cde and /var/lib/cde in proper FHS locations.
+Patch2:         0003-configure-make-cde-paths-overridable.patch
 
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc
@@ -200,6 +204,10 @@ export LDFLAGS="%{?build_ldflags} -Wl,-z,notext"
     --sysconfdir=/etc \
     --localstatedir=/var \
     --with-pam-dir=/etc/pam.d \
+    --with-cde-data-dir=/usr/dt \
+    --with-cde-config-dir=/etc/dt \
+    --with-cde-state-dir=/var/dt \
+    --with-cde-libexec-dir=/usr/bin \
     --enable-german \
     --enable-french \
     --enable-spanish \
