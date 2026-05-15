@@ -1,0 +1,777 @@
+---
+diff --git a/lib/DtHelp/Print.c b/lib/DtHelp/Print.c
+index a8699a336..cc1fb4368 100644
+--- a/lib/DtHelp/Print.c
++++ b/lib/DtHelp/Print.c
+@@ -99,7 +99,7 @@ typedef struct _DtHelpPrintCBRec {
+ } _DtHelpPrintCBRec;
+ 
+ /***** Global Variables ****/
+-char _DtHelpDefaultHelpPrint[] = "/usr/dt/bin/dthelpprint";
++char _DtHelpDefaultHelpPrint[] = CDE_INSTALLATION_TOP "/bin/dthelpprint";
+ 
+ /* The order of these names must match the constants DtHELP_PAPERSIZE_xxx */
+ char *_DtHelpPaperSizeNames[] =
+diff --git a/lib/DtSvc/DtUtil2/LocaleXlate.c b/lib/DtSvc/DtUtil2/LocaleXlate.c
+index 3060ee9c3..3657a78c0 100644
+--- a/lib/DtSvc/DtUtil2/LocaleXlate.c
++++ b/lib/DtSvc/DtUtil2/LocaleXlate.c
+@@ -369,8 +369,8 @@ on HP-UX platforms, the string is "HPUX", so the translation
+ databases to be loaded must be named "HPUX.lcx".
+ 
+ By default, the search paths are:
+-DTLCXSEARCHPATH = "/usr/dt/config/svc:" \
+-                  "/etc/dt/config/svc:" \
++DTLCXSEARCHPATH = CDE_INSTALLATION_TOP "/config/svc:" \
++                  CDE_CONFIGURATION_TOP "/config/svc:" \
+                   "$HOME/.dt/config/svc"
+ 
+ Alternatively, the DTLCXSEARCHPATH directory may be used
+diff --git a/lib/tt/slib/Makefile.am b/lib/tt/slib/Makefile.am
+index a987b2aaf..ca3b75008 100644
+--- a/lib/tt/slib/Makefile.am
++++ b/lib/tt/slib/Makefile.am
+@@ -2,7 +2,10 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ noinst_LIBRARIES = libstt.a
+ 
+-libstt_a_CXXFLAGS = $(TIRPC_DEFINES) -I../lib
++libstt_a_CXXFLAGS = $(TIRPC_DEFINES) -I../lib \
++    -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++    -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ libstt_a_SOURCES = mp_ce_attrs.C mp_observer.C mp_observer_utils.C  \
+ mp_otype.C              mp_otype_utils.C           mp_ptype.C           \
+diff --git a/lib/tt/slib/mp_typedb.C b/lib/tt/slib/mp_typedb.C
+index f997cc71a..59701e476 100644
+--- a/lib/tt/slib/mp_typedb.C
++++ b/lib/tt/slib/mp_typedb.C
+@@ -242,7 +242,7 @@ _Tt_typedb::tt_path()
+ 		pathlist->append(home.cat("/.tt/types.xdr"));
+ 		pathlist->append(_Tt_string("/etc/tt/types.xdr"));
+ 		pathlist->append(
+-			_Tt_string("/usr/dt/appconfig/tttypes/types.xdr"));
++			_Tt_string(CDE_INSTALLATION_TOP "/appconfig/tttypes/types.xdr"));
+ 		home = getenv("OPENWINHOME");
+ 		if (home.len() == 0) {
+ 			home = "/usr/openwin";
+diff --git a/programs/dtappbuilder/src/ab/Makefile.am b/programs/dtappbuilder/src/ab/Makefile.am
+index 38302f72a..064a7d4d2 100644
+--- a/programs/dtappbuilder/src/ab/Makefile.am
++++ b/programs/dtappbuilder/src/ab/Makefile.am
+@@ -6,6 +6,10 @@ appdefaultsdir = $(CDE_INSTALLATION_TOP)/app-defaults/C
+ 
+ ABINCLUDES = -I../include -I../include/ab_private -I../libABil
+ 
++AM_CPPFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++              -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++              -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
++
+ bin_PROGRAMS = dtbuilder
+ 
+ BUILT_SOURCES = dtbuilder.h dtbuilder.c about_box_ui.h appfw_ui.h \
+diff --git a/programs/dtappbuilder/src/ab/cgen_utils.c b/programs/dtappbuilder/src/ab/cgen_utils.c
+index 2d6f58ce4..67eab6a53 100644
+--- a/programs/dtappbuilder/src/ab/cgen_utils.c
++++ b/programs/dtappbuilder/src/ab/cgen_utils.c
+@@ -144,7 +144,7 @@ static STRING	dtcodegenCmdList[] =
+     "",				/* exe-dir filled in at run time */
+     "",				/* exe-dir/../abmf : filled in at runtime */
+     "dtcodegen", 
+-    "/usr/dt/bin/dtcodegen", 
++    CDE_INSTALLATION_TOP "/bin/dtcodegen", 
+     NULL
+ };
+ 
+diff --git a/programs/dtcreate/Makefile.am b/programs/dtcreate/Makefile.am
+index 6df2ba70a..4096e5f9e 100644
+--- a/programs/dtcreate/Makefile.am
++++ b/programs/dtcreate/Makefile.am
+@@ -2,6 +2,10 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ bin_PROGRAMS = dtcreate
+ 
++AM_CPPFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++              -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++              -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
++
+ dtcreate_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+ 
+ dtcreate_SOURCES = main.c AddFiletype.c Confirmed.c			\
+diff --git a/programs/dtcreate/cmnrtns.c b/programs/dtcreate/cmnrtns.c
+index acab64784..d4f3aeaba 100644
+--- a/programs/dtcreate/cmnrtns.c
++++ b/programs/dtcreate/cmnrtns.c
+@@ -356,8 +356,8 @@ char **GetIconSearchPathList(void)
+   char    **pplist;
+   char    *lang;
+   int     langsize;
+-  static  char *default_list1[] = {"~/.dt/icons", "/etc/dt/appconfig/icons/C", "/usr/dt/appconfig/icons/C"};
+-  static  char *default_list2[] = {"/etc/dt/appconfig/icons/C", "/usr/dt/appconfig/icons/C"};
++  static  char *default_list1[] = {"~/.dt/icons", CDE_CONFIGURATION_TOP "/appconfig/icons/C", CDE_INSTALLATION_TOP "/appconfig/icons/C"};
++  static  char *default_list2[] = {CDE_CONFIGURATION_TOP "/appconfig/icons/C", CDE_INSTALLATION_TOP "/appconfig/icons/C"};
+   char    **default_list;
+   Boolean bFound;
+   char    *pszEnvVar;
+diff --git a/programs/dtcreate/icon_selection_dialog.c b/programs/dtcreate/icon_selection_dialog.c
+index 0aae4e580..ae8867e14 100644
+--- a/programs/dtcreate/icon_selection_dialog.c
++++ b/programs/dtcreate/icon_selection_dialog.c
+@@ -713,7 +713,7 @@ void  update_container_contents (char *filter)
+   /******************************************************************/
+   n = 0;
+   /*
+-  XtSetArg(args[n], XmNimageName, "/usr/dt/appconfig/icons/C/Dtactn.m.pm"); n++;
++  XtSetArg(args[n], XmNimageName, CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.m.pm"); n++;
+   */
+   XtSetArg(args[n], XmNimageName, NULL); n++;
+   XtSetArg(args[n], XmNfillMode, XmFILL_SELF); n++;
+diff --git a/programs/dtcreate/main.c b/programs/dtcreate/main.c
+index 67d1528a9..829cc934a 100644
+--- a/programs/dtcreate/main.c
++++ b/programs/dtcreate/main.c
+@@ -205,18 +205,18 @@ Widget  last_action_pushed = (Widget)NULL;
+ Widget  last_filetype_pushed = (Widget)NULL;
+ 
+ const char *ca_icon_default = "Dtactn";
+-const char *ca_full_icon_default =  "/usr/dt/appconfig/icons/C/Dtactn";
+-const char *ca_lrg_icon_default =  "/usr/dt/appconfig/icons/C/Dtactn.l";
+-const char *ca_med_icon_default =  "/usr/dt/appconfig/icons/C/Dtactn.m";
+-const char *ca_sml_icon_default =  "/usr/dt/appconfig/icons/C/Dtactn.s";
+-const char *ca_tiny_icon_default = "/usr/dt/appconfig/icons/C/Dtactn.t";
++const char *ca_full_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn";
++const char *ca_lrg_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.l";
++const char *ca_med_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.m";
++const char *ca_sml_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.s";
++const char *ca_tiny_icon_default = CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.t";
+ 
+ const char *af_icon_default = "Dtdata";
+-const char *af_full_icon_default =  "/usr/dt/appconfig/icons/C/Dtdata";
+-const char *af_lrg_icon_default =  "/usr/dt/appconfig/icons/C/Dtdata.l";
+-const char *af_med_icon_default =  "/usr/dt/appconfig/icons/C/Dtdata.m";
+-const char *af_sml_icon_default =  "/usr/dt/appconfig/icons/C/Dtdata.s";
+-const char *af_tiny_icon_default = "/usr/dt/appconfig/icons/C/Dtdata.t";
++const char *af_full_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata";
++const char *af_lrg_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata.l";
++const char *af_med_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata.m";
++const char *af_sml_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata.s";
++const char *af_tiny_icon_default = CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata.t";
+ 
+ 
+ 
+diff --git a/programs/dthelp/dthelpprint/Initialize.c b/programs/dthelp/dthelpprint/Initialize.c
+index 743143030..470351e7e 100644
+--- a/programs/dthelp/dthelpprint/Initialize.c
++++ b/programs/dthelp/dthelpprint/Initialize.c
+@@ -63,7 +63,7 @@ $COPYRIGHT$:
+ #define XDEFAULTS_FILE		"/.Xdefaults"
+ #define XDEFAULTS_HOST_FILE	"/.Xdefaults-"
+ #define TMP_DIR_STR		"/.dt/tmp"
+-#define DTHELPPRINTSH_FILE	"/usr/dt/bin/dthelpprint.sh"
++#define DTHELPPRINTSH_FILE	CDE_INSTALLATION_TOP "/bin/dthelpprint.sh"
+ 
+ /*=========== helper constants ===========*/
+ #define EOS           '\0'
+diff --git a/programs/dthelp/parser/canon1/helptag/Makefile.am b/programs/dthelp/parser/canon1/helptag/Makefile.am
+index 9d7c8adcc..01df21434 100644
+--- a/programs/dthelp/parser/canon1/helptag/Makefile.am
++++ b/programs/dthelp/parser/canon1/helptag/Makefile.am
+@@ -25,7 +25,10 @@ CLEANFILES = $(BUILT_SOURCES)
+ 
+ AM_CPPFLAGS = -DCANON1 -I../parser -I../eltdef -I../../include/parser -I../../include/util \
+ 	      -I../../include/eltdef -I../../include/helptag \
+-	      $(DT_INCDIR)
++	      $(DT_INCDIR) \
++	      -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++	      -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++	      -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ # needed by parser/
+ noinst_LIBRARIES = libhelptag.a
+diff --git a/programs/dthelp/parser/canon1/helptag/help.c b/programs/dthelp/parser/canon1/helptag/help.c
+index 8e3a68628..9cabce2c1 100644
+--- a/programs/dthelp/parser/canon1/helptag/help.c
++++ b/programs/dthelp/parser/canon1/helptag/help.c
+@@ -76,7 +76,7 @@ if ((m_argc > 2) && (strchr(m_argv[2], 'f') || strchr(m_argv[2], 'F')))
+     filelist = TRUE;
+ 
+ /* Get installation directory */
+-#define CONTRIB "/usr/dt/bin/"
++#define CONTRIB CDE_INSTALLATION_TOP "/bin/"
+ 
+ /* get our path if we can */
+ /* A hacked up ``which'', just to find our directory */
+diff --git a/programs/dthelp/parser/pass1/helptag/Makefile.am b/programs/dthelp/parser/pass1/helptag/Makefile.am
+index 114e03d75..4f2a9e337 100644
+--- a/programs/dthelp/parser/pass1/helptag/Makefile.am
++++ b/programs/dthelp/parser/pass1/helptag/Makefile.am
+@@ -25,7 +25,10 @@ CLEANFILES = $(BUILT_SOURCES)
+ 
+ AM_CPPFLAGS = -DPASS1 -I../parser -I../eltdef -I../../include/parser -I../../include/util \
+ 	      -I../../include/eltdef -I../../include/helptag \
+-	      $(DT_INCDIR)
++	      $(DT_INCDIR) \
++	      -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++	      -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++	      -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ # needed by parser/
+ noinst_LIBRARIES = libhelptag.a
+diff --git a/programs/dthelp/parser/pass1/helptag/help.c b/programs/dthelp/parser/pass1/helptag/help.c
+index 6af835d4c..44ad9f0e6 100644
+--- a/programs/dthelp/parser/pass1/helptag/help.c
++++ b/programs/dthelp/parser/pass1/helptag/help.c
+@@ -77,7 +77,7 @@ if ((m_argc > 2) && (strchr(m_argv[2], 'f') || strchr(m_argv[2], 'F')))
+     filelist = TRUE;
+ 
+ /* Get installation directory */
+-#define CONTRIB "/usr/dt/bin/"
++#define CONTRIB CDE_INSTALLATION_TOP "/bin/"
+ 
+ /* get our path if we can */
+ /* A hacked up ``which'', just to find our directory */
+diff --git a/programs/dtimsstart/Makefile.am b/programs/dtimsstart/Makefile.am
+index 0b91977db..c1f594188 100644
+--- a/programs/dtimsstart/Makefile.am
++++ b/programs/dtimsstart/Makefile.am
+@@ -6,7 +6,10 @@ bin_PROGRAMS = dtimsstart
+ 
+ dist_xsession_SCRIPTS = 0020.dtims
+ 
+-dtimsstart_CFLAGS = -DNLS 
++dtimsstart_CFLAGS = -DNLS \
++    -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++    -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ dtimsstart_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+ 
+diff --git a/programs/dtimsstart/ximspath.h b/programs/dtimsstart/ximspath.h
+index 40ac7fbad..14417de8a 100644
+--- a/programs/dtimsstart/ximspath.h
++++ b/programs/dtimsstart/ximspath.h
+@@ -47,22 +47,22 @@
+ #define	ENV_NO_DTIMSSTART	"NODTIMSSTART"
+ #define	ENV_XFILESEARCHPATH	"XFILESEARCHPATH"
+ #define	ENV_XFILESEARCHPATH_STRING \
+-	"/etc/dt/app-defaults/%L/%N:/etc/dt/app-defaults/C/%N:/usr/dt/app-defaults/%L/%N:/usr/dt/app-defaults/C/%N"
++	CDE_CONFIGURATION_TOP "/app-defaults/%L/%N:" CDE_CONFIGURATION_TOP "/app-defaults/C/%N:" CDE_INSTALLATION_TOP "/app-defaults/%L/%N:" CDE_INSTALLATION_TOP "/app-defaults/C/%N"
+ #define	ENV_NLSPATH		"NLSPATH"
+ #define	ENV_NLSPATH_STRING \
+-	"/usr/dt/lib/nls/msg/%L/%N.cat:/usr/dt/lib/nls/msg/C/%N.cat"
++	CDE_INSTALLATION_TOP "/lib/nls/msg/%L/%N.cat:" CDE_INSTALLATION_TOP "/lib/nls/msg/C/%N.cat"
+ 
+ 	/* configuration */
+-#define	DTIMS_CONFDIR		"/usr/dt/config/ims"
+-#define	DTIMS_APPDIR		"/usr/dt/app-defaults"
++#define	DTIMS_CONFDIR		CDE_INSTALLATION_TOP "/config/ims"
++#define	DTIMS_APPDIR		CDE_INSTALLATION_TOP "/app-defaults"
+ #define	DTIMS_CONFFILE		"start.conf"
+ 
+ 	/* path of executable (used for remote execution) */
+-#define	DTIMS_CMDPATH		"/usr/dt/bin/dtimsstart"
++#define	DTIMS_CMDPATH		CDE_INSTALLATION_TOP "/bin/dtimsstart"
+ 
+ 	/* user dir */
+ #define	DTIMS_IMSDIR		"ims"		/* [%b] */
+-#define	DTIMS_LOGDIR		"/var/dt"	/* [%G] */
++#define	DTIMS_LOGDIR		CDE_LOGFILES_TOP	/* [%G] */
+ #define	DTIMS_LOGFILE		"imslog"	/* [%g] */
+ 
+ 	/* user dir */
+@@ -99,10 +99,10 @@
+ #define	SH_PATH			"/usr/bin/sh"
+ #define	CAT_PATH		"/usr/bin/cat"
+ #define	XRDB_PATH		"/usr/bin/X11/xrdb"
+-#define	DTSESSION_RES_PATH	"/usr/dt/bin/dtsession_res"
++#define	DTSESSION_RES_PATH	CDE_INSTALLATION_TOP "/bin/dtsession_res"
+ 
+     /* DT dirs */
+-#define	DT_CONFDIR		"/usr/dt/config"
++#define	DT_CONFDIR		CDE_INSTALLATION_TOP "/config"
+ #define	DT_USERDIR		"%H/.dt"
+ 
+ #endif	/* _XIMSPATH_H_ */
+diff --git a/programs/dtinfo/dtinfo/src/Agents/AddLibraryAgentMotif.C b/programs/dtinfo/dtinfo/src/Agents/AddLibraryAgentMotif.C
+index 55ef14579..48874d6ad 100644
+--- a/programs/dtinfo/dtinfo/src/Agents/AddLibraryAgentMotif.C
++++ b/programs/dtinfo/dtinfo/src/Agents/AddLibraryAgentMotif.C
+@@ -227,9 +227,9 @@ AddLibraryAgent::pick_dir () {
+ //       user environment LANG is OK ...
+     char *tmpstr;
+     if( (tmpstr = getenv("LANG")) )
+-	snprintf( buf, buflen, "/usr/dt/infolib/%s/", tmpstr );
++	snprintf( buf, buflen, CDE_INSTALLATION_TOP "/infolib/%s/", tmpstr );
+     else
+-	snprintf( buf, buflen, "/usr/dt/infolib/%s/", env().lang() );
++	snprintf( buf, buflen, CDE_INSTALLATION_TOP "/infolib/%s/", env().lang() );
+ //
+     XmString basedir_str = XmStringCreateLocalized( buf );
+     slen = strlen(buf);
+diff --git a/programs/dtinfo/dtinfo/src/Managers/EnvMgr.C b/programs/dtinfo/dtinfo/src/Managers/EnvMgr.C
+index 6acb7c27d..1f4fd495e 100644
+--- a/programs/dtinfo/dtinfo/src/Managers/EnvMgr.C
++++ b/programs/dtinfo/dtinfo/src/Managers/EnvMgr.C
+@@ -201,7 +201,7 @@ EnvMgr::init(int argc_i, char** argv_i)
+     {
+        static char markref[256];
+        snprintf (markref, sizeof(markref), "DTINFO_MARKSPECPATH=%s",
+-					"/usr/dt/infolib/etc" );
++					CDE_INSTALLATION_TOP "/infolib/etc" );
+        putenv (markref);
+     }
+   }
+diff --git a/programs/dtinfo/dtinfo_env.mk b/programs/dtinfo/dtinfo_env.mk
+index 6f05b7cd7..e81b568a5 100644
+--- a/programs/dtinfo/dtinfo_env.mk
++++ b/programs/dtinfo/dtinfo_env.mk
+@@ -4,7 +4,10 @@
+ # common defines
+ DTINFO_DEFINES = -DDtinfoClient -DUseWideChars -DInternationalize	\
+ -DUseMotifXpm -DUseTooltalk -DUseSessionMgmt -DDTSEARCH -DCDE_NEXT	\
+--DEXPAND_TEMPLATES
++-DEXPAND_TEMPLATES \
++-DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++-DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ if LINUX
+ DTINFO_DEFINES += -DNATIVE_EXCEPTIONS
+diff --git a/programs/dtlogin/dm.c b/programs/dtlogin/dm.c
+index 7e6d86eab..29dd41664 100644
+--- a/programs/dtlogin/dm.c
++++ b/programs/dtlogin/dm.c
+@@ -1644,10 +1644,10 @@ static void
+ dtMakeDefaultDir( void )
+ {
+     dtmkdir("/var", 0755, 0);
+-    dtmkdir("/var/dt", 0755, 1);
+-    dtmkdir("/var/dt/tmp", 0755, 1);
+-    dtmkdir("/var/dt/appconfig", 0755, 1);
+-    dtmkdir("/var/dt/appconfig/appmanager", 0755, 1);
++    dtmkdir(CDE_LOGFILES_TOP, 0755, 1);
++    dtmkdir(CDE_LOGFILES_TOP "/tmp", 0755, 1);
++    dtmkdir(CDE_LOGFILES_TOP "/appconfig", 0755, 1);
++    dtmkdir(CDE_LOGFILES_TOP "/appconfig/appmanager", 0755, 1);
+ }
+ 
+ static void
+diff --git a/programs/dtlogin/session.c b/programs/dtlogin/session.c
+index 4dc3b7da1..c6e10408e 100644
+--- a/programs/dtlogin/session.c
++++ b/programs/dtlogin/session.c
+@@ -684,7 +684,7 @@ LoadXloginResources( struct display *d )
+ 
+ 	LoadAltDtsResources(d); 
+ 
+-        strcpy(tmpname,"/var/dt/dtlogin_XXXXXX");
++        strcpy(tmpname,CDE_LOGFILES_TOP "/dtlogin_XXXXXX");
+         (void) mktemp(tmpname);
+ 
+         XrmPutFileDatabase(XresourceDB, tmpname);
+diff --git a/programs/dtlogin/vg.h b/programs/dtlogin/vg.h
+index 39de37284..cbfe7b674 100644
+--- a/programs/dtlogin/vg.h
++++ b/programs/dtlogin/vg.h
+@@ -87,7 +87,7 @@ extern int errno;
+ 
+ #define NO_LOGIN_FILE		"/etc/nologin"
+ 
+-#define DTLITESESSION		"/usr/dt/bin/dtlitesession"
++#define DTLITESESSION		CDE_INSTALLATION_TOP "/bin/dtlitesession"
+ 
+ #define LOGIN_STR_LEN 1024
+ 
+diff --git a/programs/dtprintinfo/Makefile.am b/programs/dtprintinfo/Makefile.am
+index 3ec53d926..2bbfda8e8 100644
+--- a/programs/dtprintinfo/Makefile.am
++++ b/programs/dtprintinfo/Makefile.am
+@@ -3,7 +3,10 @@ MAINTAINERCLEANFILES = Makefile.in
+ bin_PROGRAMS = dtprintinfo
+ 
+ AM_CPPFLAGS = -I./UI -I./libUI -I./util -I./libUI/MotifUI -I./objects	\
+-	-I./objects/PrintObj -DKORNSHELL=\"$(KSH)\"
++	-I./objects/PrintObj -DKORNSHELL=\"$(KSH)\" \
++	-DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++	-DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++	-DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ dtprintinfo_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+ 
+diff --git a/programs/dtprintinfo/UI/DtApp.C b/programs/dtprintinfo/UI/DtApp.C
+index 406d9a4e2..bd56c8f90 100644
+--- a/programs/dtprintinfo/UI/DtApp.C
++++ b/programs/dtprintinfo/UI/DtApp.C
+@@ -1418,7 +1418,7 @@ void DtApp::UpdateQueues()
+     {
+       window->status_line->Name(MESSAGE(UpdatingActionsL));
+       window->Refresh();
+-      system("/usr/dt/bin/dtaction ReloadActions&");
++      system(CDE_INSTALLATION_TOP "/bin/dtaction ReloadActions&");
+     }
+    UpdateStatusLine();
+    window->container->EndUpdate();
+diff --git a/programs/dtprintinfo/UI/DtFindSet.C b/programs/dtprintinfo/UI/DtFindSet.C
+index 56153eab6..fe3b42ea8 100644
+--- a/programs/dtprintinfo/UI/DtFindSet.C
++++ b/programs/dtprintinfo/UI/DtFindSet.C
+@@ -93,8 +93,8 @@ DtFindSet::DtFindSet(DtMainW *parent, char *name, CallerCallback _callback)
+       output = new char[strlen(home) + 80];
+       n_dirs = 3;
+       sprintf(output, "%s/.dt/icons\n"
+-                      "/usr/dt/appconfig/icons/C\n"
+-                      "/etc/dt/appconfig/icons/C\n", (home[1] ? home : "" ));
++                      CDE_INSTALLATION_TOP "/appconfig/icons/C\n"
++                      CDE_CONFIGURATION_TOP "/appconfig/icons/C\n", (home[1] ? home : "" ));
+     }
+    dirs = new char *[n_dirs];
+    filenames = new FileNames [n_dirs];
+diff --git a/programs/dtprintinfo/UI/DtPrinterIcon.C b/programs/dtprintinfo/UI/DtPrinterIcon.C
+index 305c50c7b..f8961aa0d 100644
+--- a/programs/dtprintinfo/UI/DtPrinterIcon.C
++++ b/programs/dtprintinfo/UI/DtPrinterIcon.C
+@@ -270,13 +270,13 @@ char *DtPrinterIcon::CreateActionFile()
+ 
+    if (app_mode == INITIALIZE_PRINTERS || app_mode == CONFIG_PRINTERS)
+     {
+-      snprintf(filename, MAXPATHLEN, "/etc/dt/appconfig/types/%s", lang);
++      snprintf(filename, MAXPATHLEN, CDE_CONFIGURATION_TOP "/appconfig/types/%s", lang);
+       if (stat(filename, &statbuff) < 0)
+        {
+          snprintf(buf, MAXPATHLEN, "/bin/mkdir -p %s", filename);
+          system(buf);
+        }
+-      snprintf(filename, MAXPATHLEN, "/etc/dt/appconfig/types/%s/%s.dt", lang,
++      snprintf(filename, MAXPATHLEN, CDE_CONFIGURATION_TOP "/appconfig/types/%s/%s.dt", lang,
+ 	      queue->Name());
+       if (stat(filename, &statbuff) < 0 || statbuff.st_size == 0)
+          create_file = true;
+@@ -288,7 +288,7 @@ char *DtPrinterIcon::CreateActionFile()
+       snprintf(buf, MAXPATHLEN, "%s/.dt/types/%s.dt", homeDir, queue->Name());
+       if (stat(buf, &statbuff) < 0 || statbuff.st_size == 0)
+        {
+-         snprintf(buf, MAXPATHLEN, "/etc/dt/appconfig/types/%s/%s.dt", lang, queue->Name());
++         snprintf(buf, MAXPATHLEN, CDE_CONFIGURATION_TOP "/appconfig/types/%s/%s.dt", lang, queue->Name());
+          if (stat(buf, &statbuff) >= 0 && statbuff.st_size > 0)
+ 	  {
+             snprintf(buf, MAXPATHLEN, "/bin/cp /etc/dt/appconfig/types/%s/%s.dt %s/.dt/types",
+diff --git a/programs/dtprintinfo/libUI/MotifUI/MotifUI.C b/programs/dtprintinfo/libUI/MotifUI/MotifUI.C
+index c66092006..77c1ebe62 100644
+--- a/programs/dtprintinfo/libUI/MotifUI/MotifUI.C
++++ b/programs/dtprintinfo/libUI/MotifUI/MotifUI.C
+@@ -670,8 +670,8 @@ void MotifUI::GetPixmaps(Widget w,
+    char *s;
+    SubstitutionRec subs[1];
+    char *bmPath;
+-   char *PIXMAP_DIR = "/usr/dt/appconfig/icons/%L/%B:"
+-                      "/usr/dt/appconfig/icons/C/%B:"
++   char *PIXMAP_DIR = CDE_INSTALLATION_TOP "/appconfig/icons/%L/%B:"
++                      CDE_INSTALLATION_TOP "/appconfig/icons/C/%B:"
+                       "/usr/include/X11/bitmaps/%B";
+ 
+    if (*name == '/')
+diff --git a/programs/dtsearchpath/dtappg/Makefile.am b/programs/dtsearchpath/dtappg/Makefile.am
+index 45c45924a..0668741ac 100644
+--- a/programs/dtsearchpath/dtappg/Makefile.am
++++ b/programs/dtsearchpath/dtappg/Makefile.am
+@@ -2,7 +2,10 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ bin_PROGRAMS = dtappgather
+ 
+-dtappgather_CXXFLAGS = -I../libCliSrv $(DT_INCDIR)
++dtappgather_CXXFLAGS = -I../libCliSrv $(DT_INCDIR) \
++    -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++    -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ dtappgather_LDADD = ../libCliSrv/libCliSrv.a $(DTCLIENTLIBS) $(XTOOLLIB)
+ 
+diff --git a/programs/dtsearchpath/dtappg/dtappgather.C b/programs/dtsearchpath/dtappg/dtappgather.C
+index beef8c26e..edb404925 100644
+--- a/programs/dtsearchpath/dtappg/dtappgather.C
++++ b/programs/dtsearchpath/dtappg/dtappgather.C
+@@ -124,7 +124,7 @@ AppManagerDirectory::AppManagerDirectory
+     else if ((char *)strstr(userhostdir.data(),"/"))
+ 	userhostdir = "generic-display-0";
+ 
+-    dirname_ = "/var/dt/appconfig/appmanager/";
++    dirname_ = CDE_LOGFILES_TOP "/appconfig/appmanager/";
+     dirname_ += userhostdir;
+ 
+     if (user->OS()->isDirectory(dirname_) &&
+@@ -185,7 +185,7 @@ AppManagerDirectory::AppManagerDirectory
+ 
+     // Make /var/dt/tmp directory if not present
+ 
+-    CString tmp("/var/dt/tmp/");
++    CString tmp(CDE_LOGFILES_TOP "/tmp/");
+     if (!user->OS()->isDirectory(tmp)) {  // does tmp exist?
+ 	user->OS()->MakeDirectory(tmp,0755);
+ 	user->OS()->changeOwnerGroup(tmp,"root","bin");
+@@ -217,7 +217,7 @@ void AppManagerDirectory::TraversePath()
+ 	while (!dir.isNull()) {
+ 	    GatherAppsFromASearchElement (dir);
+ 	    dir = subpath.next();
+-	    if (langVersionFound && dir == "/usr/dt/appconfig/appmanager/C")
++	    if (langVersionFound && dir == CDE_INSTALLATION_TOP "/appconfig/appmanager/C")
+ 		dir = subpath.next();
+ 	}
+     }
+@@ -271,7 +271,7 @@ void AppManagerDirectory::GatherAppsFromASearchElement
+ 		source.replace("%L",user_->OS()->LANG());
+ 		if (!user_->OS()->isDirectory(source))
+ 		     return;
+-		if (source.contains("/usr/dt/appconfig/appmanager/"))
++		if (source.contains(CDE_INSTALLATION_TOP "/appconfig/appmanager/"))
+ 		    langVersionFound = 1;
+ 	    }
+ 	    else
+diff --git a/programs/dtsearchpath/dtsp/InfoLibSearchPath.C b/programs/dtsearchpath/dtsp/InfoLibSearchPath.C
+index 036533009..ac7e17bb3 100644
+--- a/programs/dtsearchpath/dtsp/InfoLibSearchPath.C
++++ b/programs/dtsearchpath/dtsp/InfoLibSearchPath.C
+@@ -70,8 +70,8 @@ InfoLibSearchPath::InfoLibSearchPath
+     CString oldFactoryInstall = user->factoryInstall;
+ 
+     // Need to re-initialize the defaults.
+-    user->sysAdmConfig   = "/etc/dt";
+-    user->factoryInstall = "/usr/dt";
++    user->sysAdmConfig   = CDE_CONFIGURATION_TOP;
++    user->factoryInstall = CDE_INSTALLATION_TOP;
+ 
+     if (user->DTINFOLIBSP()) {
+ 	if (user->DTUSERINFOLIBSP()) {
+diff --git a/programs/dtsearchpath/dtsp/Makefile.am b/programs/dtsearchpath/dtsp/Makefile.am
+index 52e42722a..3b4ac8c25 100644
+--- a/programs/dtsearchpath/dtsp/Makefile.am
++++ b/programs/dtsearchpath/dtsp/Makefile.am
+@@ -2,7 +2,10 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ bin_PROGRAMS = dtsearchpath
+ 
+-dtsearchpath_CPPFLAGS = -I../libCliSrv $(DT_INCDIR)
++dtsearchpath_CPPFLAGS = -I../libCliSrv $(DT_INCDIR) \
++    -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++    -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ if SOLARIS
+ dtsearchpath_CPPFLAGS += -DIOSTREAMSWORKS
+diff --git a/programs/dtsearchpath/libCliSrv/Environ.C b/programs/dtsearchpath/libCliSrv/Environ.C
+index 05020081c..80d87cb98 100644
+--- a/programs/dtsearchpath/libCliSrv/Environ.C
++++ b/programs/dtsearchpath/libCliSrv/Environ.C
+@@ -56,9 +56,9 @@ CDEEnvironment::CDEEnvironment
+ {
+     CString envVar;
+ 
+-    sysAdmConfig = "/etc/dt/appconfig";
+-    factoryInstall = "/usr/dt/appconfig";
+-    factoryManPath = "/usr/dt/man";
++    sysAdmConfig = CDE_CONFIGURATION_TOP "/appconfig";
++    factoryInstall = CDE_INSTALLATION_TOP "/appconfig";
++    factoryManPath = CDE_INSTALLATION_TOP "/man";
+ 
+     envVar = os->getEnvironmentVariable("DTSPSYSAPPHOSTS");
+     if (!envVar.isNull())
+diff --git a/programs/dtsearchpath/libCliSrv/Makefile.am b/programs/dtsearchpath/libCliSrv/Makefile.am
+index f7dc9f87b..63110b1f0 100644
+--- a/programs/dtsearchpath/libCliSrv/Makefile.am
++++ b/programs/dtsearchpath/libCliSrv/Makefile.am
+@@ -2,7 +2,10 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ noinst_LIBRARIES = libCliSrv.a
+ 
+-libCliSrv_a_CXXFLAGS = $(DT_INCDIR)
++libCliSrv_a_CXXFLAGS = $(DT_INCDIR) \
++    -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++    -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+ if SOLARIS
+ libCliSrv_a_CXXFLAGS += -DIOSTREAMSWORKS
+diff --git a/programs/dtstyle/Backdrop.c b/programs/dtstyle/Backdrop.c
+index 98a4689fa..92faf1ce8 100644
+--- a/programs/dtstyle/Backdrop.c
++++ b/programs/dtstyle/Backdrop.c
+@@ -399,8 +399,8 @@ CreateBackdropDialog(
+     /* from that locale's description file from the system location */
+     lang = setlocale (LC_CTYPE,NULL);
+ 
+-    bd_desc = (char *)XtMalloc(strlen("/usr/dt/backdrops/desc.") + strlen(lang) + 1);
+-    strcpy (bd_desc,"/usr/dt/backdrops/desc.");
++    bd_desc = (char *)XtMalloc(strlen(CDE_INSTALLATION_TOP "/backdrops/desc.") + strlen(lang) + 1);
++    strcpy (bd_desc,CDE_INSTALLATION_TOP "/backdrops/desc.");
+     strcat (bd_desc, lang);
+     if(sys_bd_DB = XrmGetFileDatabase (bd_desc))
+       	XrmMergeDatabases(sys_bd_DB, &bd_DB);
+@@ -408,8 +408,8 @@ CreateBackdropDialog(
+     
+     /* load the backdrop description data base for the given locale*/
+     /* from that locale's description file from the admin location */
+-    bd_desc = (char *)XtMalloc(strlen("/etc/dt/backdrops/desc.") + strlen(lang) + 1);
+-    strcpy (bd_desc,"/etc/dt/backdrops/desc.");
++    bd_desc = (char *)XtMalloc(strlen(CDE_CONFIGURATION_TOP "/backdrops/desc.") + strlen(lang) + 1);
++    strcpy (bd_desc,CDE_CONFIGURATION_TOP "/backdrops/desc.");
+     strcat (bd_desc, lang);
+     if (adm_bd_DB = XrmGetFileDatabase (bd_desc))
+ 	XrmMergeDatabases(adm_bd_DB, &bd_DB);
+@@ -639,9 +639,9 @@ static int
+   backdrops.tmpNumBitmaps = 0;
+   
+   /* read system backdrop directory */
+-    ReadBitmapDirectory("/usr/dt/backdrops");
++    ReadBitmapDirectory(CDE_INSTALLATION_TOP "/backdrops");
+   /* read sys admin backdrop directory */
+-  ReadBitmapDirectory("/etc/dt/backdrops");
++  ReadBitmapDirectory(CDE_CONFIGURATION_TOP "/backdrops");
+   
+   /* Parse the backdropDirectories resource to get the individual directories */
+   if (style.xrdb.backdropDir)
+diff --git a/programs/dtstyle/ColorFile.c b/programs/dtstyle/ColorFile.c
+index 8ae8724cd..71097543d 100644
+--- a/programs/dtstyle/ColorFile.c
++++ b/programs/dtstyle/ColorFile.c
+@@ -125,7 +125,7 @@ static void InitializeBW(
+ /* Internal Variables                    */
+ /*+++++++++++++++++++++++++++++++++++++++*/
+ static char *PALETTE_DIR = CDE_INSTALLATION_TOP "/palettes/";
+-static char *PALETTE_DIR_ADM = "/etc/dt/palettes/";
++static char *PALETTE_DIR_ADM = CDE_CONFIGURATION_TOP "/palettes/";
+ static char *DEFAULT_FILENAME = "palette.dt";
+ static char *B_O_W = "BlackWhite.dp";
+ static char *W_O_B = "WhiteBlack.dp";
+diff --git a/programs/dtstyle/ColorMain.c b/programs/dtstyle/ColorMain.c
+index 589cfd021..c0fe954fd 100644
+--- a/programs/dtstyle/ColorMain.c
++++ b/programs/dtstyle/ColorMain.c
+@@ -319,8 +319,8 @@ loadDatabase(void)
+ 
+   lang = setlocale (LC_CTYPE,NULL);
+ 
+-  pl_desc = (char *)XtMalloc(strlen("/usr/dt/palettes/desc.") + strlen(lang) + 1);
+-  strcpy (pl_desc,"/usr/dt/palettes/desc.");
++  pl_desc = (char *)XtMalloc(strlen(CDE_INSTALLATION_TOP "/palettes/desc.") + strlen(lang) + 1);
++  strcpy (pl_desc,CDE_INSTALLATION_TOP "/palettes/desc.");
+   strcat (pl_desc, lang);
+   if(sys_pl_DB = XrmGetFileDatabase (pl_desc))
+     XrmMergeDatabases(sys_pl_DB, &pl_DB);
+@@ -328,8 +328,8 @@ loadDatabase(void)
+   
+   /* load the palette description data base for the given locale*/
+   /* from that locale's description file from the admin location */
+-  pl_desc = (char *)XtMalloc(strlen("/etc/dt/palettes/desc.") + strlen(lang) + 1);
+-  strcpy (pl_desc,"/etc/dt/palettes/desc.");
++  pl_desc = (char *)XtMalloc(strlen(CDE_CONFIGURATION_TOP "/palettes/desc.") + strlen(lang) + 1);
++  strcpy (pl_desc,CDE_CONFIGURATION_TOP "/palettes/desc.");
+   strcat (pl_desc, lang);
+   if (adm_pl_DB = XrmGetFileDatabase (pl_desc))
+     XrmMergeDatabases(adm_pl_DB, &pl_DB);
+diff --git a/programs/dtstyle/I18nEnv.c b/programs/dtstyle/I18nEnv.c
+index cd26ade4a..acd96f6fd 100644
+--- a/programs/dtstyle/I18nEnv.c
++++ b/programs/dtstyle/I18nEnv.c
+@@ -401,11 +401,11 @@ GetImsList(
+ 
+     /* First check if dtimsstart is installed correctly */
+ 
+-    if ((ret = stat ("/usr/dt/bin/dtimsstart", &buf)) != NoError) {
++    if ((ret = stat (CDE_INSTALLATION_TOP "/bin/dtimsstart", &buf)) != NoError) {
+ 	return ErrNoDtimsstart;
+     }
+     
+-    sprintf(pipe_command, "/usr/dt/bin/dtimsstart -listname -hostname %s", 
++    sprintf(pipe_command, CDE_INSTALLATION_TOP "/bin/dtimsstart -listname -hostname %s", 
+ 	    hostname);
+ 
+     if (fp = popen(pipe_command, "r")) {
+diff --git a/programs/dtstyle/Main.c b/programs/dtstyle/Main.c
+index 7a93c4005..aef8329ca 100644
+--- a/programs/dtstyle/Main.c
++++ b/programs/dtstyle/Main.c
+@@ -563,7 +563,7 @@ malloc_trace(0);
+     string = (char *)XtMalloc(strlen(style.home) + strlen("/.dt/backdrops:") + 1);
+     sprintf(string, "%s/.dt/backdrops:", style.home);
+ 
+-    dirs = (char *)XtCalloc(1, strlen("/etc/dt/backdrops:/usr/dt/backdrops") + 
++    dirs = (char *)XtCalloc(1, strlen(CDE_CONFIGURATION_TOP "/backdrops:" CDE_INSTALLATION_TOP "/backdrops") + 
+ 			    (style.xrdb.backdropDir == NULL ? 2 :
+ 			    strlen(style.xrdb.backdropDir)) + 
+ 			    strlen(string) + 2);
+@@ -575,7 +575,7 @@ malloc_trace(0);
+ 	strcat(dirs, style.xrdb.backdropDir);
+ 	strcat(dirs, ":"); 
+       }
+-    strcat(dirs, "/etc/dt/backdrops:/usr/dt/backdrops");
++    strcat(dirs, CDE_CONFIGURATION_TOP "/backdrops:" CDE_INSTALLATION_TOP "/backdrops");
+ 
+     _DtWsmSetBackdropSearchPath(style.screen, dirs, style.useMultiColorIcons);
+ 
+diff --git a/programs/dtudcfonted/include/udccom.h b/programs/dtudcfonted/include/udccom.h
+index 8e9dd4bb2..22f9797f1 100644
+--- a/programs/dtudcfonted/include/udccom.h
++++ b/programs/dtudcfonted/include/udccom.h
+@@ -31,7 +31,7 @@
+ #include "udcopt.h"
+ 
+ /* default path of dtaddcpf */
+-#define DFLTPATH 	"/usr/dt/lib/dtudcfonted/dtaddcpf"
++#define DFLTPATH 	CDE_INSTALLATION_TOP "/lib/dtudcfonted/dtaddcpf"
+ #define DFLTCMD		"dtaddcpf"
+ 
+ /* commands for exchange font format */
+@@ -39,7 +39,7 @@
+ #define BDFTOPCF_CMD	"bdftopcf"
+ 
+ /* default path for commands */
+-#define SNFTOBDF	"/usr/dt/lib/dtudcfonted/dtgpftobdf"
++#define SNFTOBDF	CDE_INSTALLATION_TOP "/lib/dtudcfonted/dtgpftobdf"
+ #ifndef FONTC
+ #define BDFTOPCF        "/usr/bin/X11/bdftopcf"
+ #else
+@@ -55,7 +55,7 @@
+ #define DTUDCFONTS		"DTUDCFONTS"
+ 
+ #ifndef DTUDCFONTSLISTDIR
+-#define	DTUDCFONTSLISTDIR	"/usr/dt/config"
++#define	DTUDCFONTSLISTDIR	CDE_INSTALLATION_TOP "/config"
+ #endif
+ 
+ /* default font path */
+diff --git a/programs/dtwm/WmInitWs.c b/programs/dtwm/WmInitWs.c
+index bd27e3f42..90e19c97c 100644
+--- a/programs/dtwm/WmInitWs.c
++++ b/programs/dtwm/WmInitWs.c
+@@ -1625,12 +1625,12 @@ InsureDefaultBackdropDir(char **ppchBackdropDirs)
+   if (bFound)  
+     {
+       len = strlen (homeDir) + strlen("/.dt/backdrops") + 
+-	    strlen (*ppchBackdropDirs) + strlen("/etc/dt/backdrops") + 3;
++	    strlen (*ppchBackdropDirs) + strlen(CDE_CONFIGURATION_TOP "/backdrops") + 3;
+       tmpptr = XtMalloc (len * sizeof (char *));
+       strcpy (tmpptr, homeDir);
+       strcat (tmpptr, "/.dt/backdrops");
+       strcat (tmpptr, ":");
+-      strcat (tmpptr, "/etc/dt/backdrops");
++      strcat (tmpptr, CDE_CONFIGURATION_TOP "/backdrops");
+       strcat (tmpptr, ":");
+       strcat (tmpptr, *ppchBackdropDirs);
+       *ppchBackdropDirs = tmpptr;
+@@ -1643,14 +1643,14 @@ InsureDefaultBackdropDir(char **ppchBackdropDirs)
+     {
+       len = strlen (homeDir) + strlen("/.dt/backdrops") + 
+ 	    strlen (*ppchBackdropDirs) + strlen(pchD) + 
+-	    strlen("/etc/dt/backdrops") + 4;
++	    strlen(CDE_CONFIGURATION_TOP "/backdrops") + 4;
+       tmpptr = XtMalloc (len * sizeof (char *));
+       strcpy (tmpptr, homeDir);
+       strcat (tmpptr, "/.dt/backdrops");
+       strcat (tmpptr, ":");
+       strcat (tmpptr, *ppchBackdropDirs); 
+       strcat (tmpptr, ":");
+-      strcat (tmpptr, "/etc/dt/backdrops"); 
++      strcat (tmpptr, CDE_CONFIGURATION_TOP "/backdrops"); 
+       strcat (tmpptr, ":");
+       strcat (tmpptr, pchD);
+       *ppchBackdropDirs = tmpptr;

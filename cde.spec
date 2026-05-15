@@ -38,6 +38,10 @@ Patch1:         0002-include-config-h-stub-for-motif.patch
 # overridable via --with-cde-{config,state,libexec,data}-dir flags.
 # Required to put /etc/cde and /var/lib/cde in proper FHS locations.
 Patch2:         0003-configure-make-cde-paths-overridable.patch
+# Phase 2: convert ~78 raw "/usr/dt/...", "/etc/dt/...", "/var/dt/..." string
+# literals in 31 source files to use the CDE_*_TOP macros from Patch2 so the
+# packager's --with-cde-* overrides actually flow into compiled binaries.
+Patch3:         0004-cleanup-cc-literals-use-cde-macros.patch
 
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc
