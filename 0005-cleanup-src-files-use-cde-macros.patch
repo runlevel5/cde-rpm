@@ -1,0 +1,1306 @@
+From: Trung Le <trung.le@ruby-journal.com>
+Subject: cleanup: replace hardcoded paths in .src files with CDE_*_TOP
+ placeholders (Phase 3)
+
+This is Phase 3 of the FHS-compliance refactor. Phase 1 made the four
+installation roots packager-overridable; Phase 2 converted ~78 raw
+"/usr/dt/...", "/etc/dt/...", "/var/dt/..." string literals in C/C++
+sources to use the CDE_*_TOP macros. This phase does the equivalent
+cleanup for the build-time-preprocessed .src files.
+
+Each .src file under programs/types/, programs/dtlogin/config/,
+programs/dtsession/, programs/dt{file,imsstart,printegrate,searchpath,
+config/sun}/, and programs/dtksh/examples/ goes through tradcpp at
+build time with -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) etc.
+Many .src files already used the CDE_INSTALLATION_TOP token correctly;
+others contained literal "/usr/dt/..." text that was therefore baked
+into the installed file regardless of what the packager configured.
+
+This patch replaces those literals with the matching tradcpp tokens:
+
+    /usr/dt   ->  CDE_INSTALLATION_TOP
+    /etc/dt   ->  CDE_CONFIGURATION_TOP
+    /var/dt   ->  CDE_LOGFILES_TOP
+
+programs/types/Makefile.am gains -DCDE_LOGFILES_TOP= so that the two
+.src files in that directory referencing /var/dt (dtappman.dt.src,
+dtfile.dt.src) get correctly substituted.
+
+Files left intentionally untouched:
+  * programs/types/actions.fs - dead code (not in BUILT_SOURCES,
+    not installed by any Makefile, untouched since the 1996 import).
+  * programs/types/dtmail.dt and dtcm.dt - shipped as-is, not
+    preprocessed; would need to be renamed to .dt.src and added
+    to BUILT_SOURCES. Future cleanup.
+  * programs/dtprintinfo/dtprintinfo.msg.src and
+    programs/dtsession/dtsession.msg.src - the literal "/usr/dt"
+    references in these .msg.src files appear in user-facing UI
+    strings or translator notes, not in code paths.
+
+After this phase, building with --with-cde-config-dir=/etc/cde
+produces an install tree where /usr/dt/config/Xsession.d/0010.dtpaths
+contains "/etc/cde/config/Xsession.d", not "/etc/dt/config/Xsession.d".
+---
+diff --git a/programs/dtconfig/sun/dtconfig.src b/programs/dtconfig/sun/dtconfig.src
+index 8956951a7..909b199b6 100644
+--- a/programs/dtconfig/sun/dtconfig.src
++++ b/programs/dtconfig/sun/dtconfig.src
+@@ -50,7 +50,7 @@ usage_error() {
+     Message 4  "  $prg_name -kill     (kill dtlogin)" $prg_name
+     Message 5  "  $prg_name -reset    (reset dtlogin)" $prg_name
+     Message 6  "  $prg_name -p        (printer action update)" $prg_name
+-    Message 25 "  $prg_name -inetd    (inetd.conf /usr/dt daemons)" $prg_name
++    Message 25 "  $prg_name -inetd    (inetd.conf CDE_INSTALLATION_TOP daemons)" $prg_name
+     Message 26 "  $prg_name -inetd.ow (inetd.conf /usr/openwin daemons)" $prg_name
+     echo " "
+ }
+@@ -87,7 +87,7 @@ LEVEL_0_KILL=/etc/rc0.d/K10dtlogin
+ LEVEL_1_KILL=/etc/rc1.d/K10dtlogin
+ LEVEL_2_START=/etc/rc2.d/S99dtlogin
+ 
+-DTDSPMSG=/usr/dt/bin/dtdspmsg
++DTDSPMSG=CDE_INSTALLATION_TOP/bin/dtdspmsg
+ 
+ NAWK=/usr/bin/nawk
+ 
+@@ -138,7 +138,7 @@ nawk_check() {
+ 
+ XCOMM Following inetdSP() procedure is from Sun CDE SI post_install
+ XCOMM configMin file.  It adds the Subprocess Control daemon inetd.conf
+-XCOMM line so it points to /usr/dt/bin/dtspcd.
++XCOMM line so it points to CDE_INSTALLATION_TOP/bin/dtspcd.
+ 
+ inetdSP()
+ {
+@@ -227,7 +227,7 @@ XCOMM
+ 
+ XCOMM Following inetdTT() procedure code from Sun CDE SI post_install
+ XCOMM configTT file.  It updates the ToolTalk daemon inetd.conf
+-XCOMM line so it points to /usr/dt/bin/rpc.ttdbserverd.
++XCOMM line so it points to CDE_INSTALLATION_TOP/bin/rpc.ttdbserverd.
+ 
+ inetdTT()
+ {
+@@ -310,7 +310,7 @@ XCOMM
+ 
+ XCOMM Following inetdCM() procedure is from Sun CDE SI post_install
+ XCOMM configRun file.  It updates the Calendar Manager daemon inetd.conf
+-XCOMM line so it points to /usr/dt/bin/rpc.cmsd.
++XCOMM line so it points to CDE_INSTALLATION_TOP/bin/rpc.cmsd.
+ 
+ inetdCM()
+ {
+@@ -497,7 +497,7 @@ case "$mode" in
+ 	inetdCM
+ 	inetdTT
+ 	Message 14 "done"
+-	Message 27 "Next system boot, following will be run from /usr/dt/bin"
++	Message 27 "Next system boot, following will be run from CDE_INSTALLATION_TOP/bin"
+ 	Message 28 "    rpc.ttdbserverd         (ToolTalk)" 
+ 	Message 29 "    rpc.cmsd                (Calendar Manager)"
+ 	Message 30 "    dtspcd                  (Subprocess Control)"
+diff --git a/programs/dtconfig/sun/dtlogin.rc.src b/programs/dtconfig/sun/dtlogin.rc.src
+index 4c0248127..6419b62d1 100644
+--- a/programs/dtconfig/sun/dtlogin.rc.src
++++ b/programs/dtconfig/sun/dtlogin.rc.src
+@@ -48,8 +48,8 @@ XCOMM Add print actions to workstation's database for all printer's known
+ XCOMM to this workstation if action is not already present in the database.
+ 
+ update_printers() {
+-   if [ -x /usr/dt/bin/dtprintinfo ] ; then
+-       	    /usr/dt/bin/dtprintinfo -populate
++   if [ -x CDE_INSTALLATION_TOP/bin/dtprintinfo ] ; then
++       	    CDE_INSTALLATION_TOP/bin/dtprintinfo -populate
+    fi
+ }
+ 
+diff --git a/programs/dtfile/dterror.src b/programs/dtfile/dterror.src
+index 0ce72f5eb..5d1c96906 100755
+--- a/programs/dtfile/dterror.src
++++ b/programs/dtfile/dterror.src
+@@ -32,7 +32,7 @@ XCOMM ------
+ 
+ MESSAGE="$@"
+ #ifdef _AIX
+-MSGCAT=/usr/dt/lib/nls/msg/$LANG/dtfile.cat
++MSGCAT=CDE_INSTALLATION_TOP/lib/nls/msg/$LANG/dtfile.cat
+ TITLE=`dspmsg $MSGCAT -s 32 1 "dt Error"`
+ #else
+ TITLE="dt Error"
+diff --git a/programs/dtimsstart/0020.dtims.src b/programs/dtimsstart/0020.dtims.src
+index 8b27f4f5a..e1aba1be0 100755
+--- a/programs/dtimsstart/0020.dtims.src
++++ b/programs/dtimsstart/0020.dtims.src
+@@ -2,7 +2,7 @@ XCOMM!KORNSHELL
+ XCOMM ####################################################################
+ XCOMM ##  File:              0020.dtims
+ XCOMM ##
+-XCOMM ##  Default Location:  /usr/dt/config/Xsession.d/
++XCOMM ##  Default Location:  CDE_INSTALLATION_TOP/config/Xsession.d/
+ XCOMM ##
+ XCOMM ##  Purpose:           Start desktop input method server if required
+ XCOMM ##
+@@ -11,23 +11,23 @@ XCOMM ##                     This script is invoked by means of the Xsession fil
+ XCOMM ##                     at user login. It starts an input method server as
+ XCOMM ##                     required for selected locales.
+ XCOMM ##
+-XCOMM ##  Invoked by:        /usr/dt/bin/Xsession
++XCOMM ##  Invoked by:        CDE_INSTALLATION_TOP/bin/Xsession
+ XCOMM ##
+ XCOMM ##  Product:           @(#)Common Desktop Environment 1.0
+ XCOMM ##
+ XCOMM ##  Note:
+ XCOMM ##
+-XCOMM ##    The /usr/dt/config/Xsession.d/0020.dtims file is a
++XCOMM ##    The CDE_INSTALLATION_TOP/config/Xsession.d/0020.dtims file is a
+ XCOMM ##    factory-default file and will be unconditionally overwritten upon
+ XCOMM ##    subsequent installation. To customize input method server startup
+ XCOMM ##    behavior, copy this file to the configuration directory,
+-XCOMM ##    /etc/dt/config/Xsession.d and customize that version
++XCOMM ##    CDE_CONFIGURATION_TOP/config/Xsession.d and customize that version
+ XCOMM ##    of the file.
+ XCOMM ##
+ XCOMM ##    The value of DTSTARTIMS determines whether this file,
+-XCOMM ##    /usr/dt/config/Xsession.d/0020.dtims, will start
++XCOMM ##    CDE_INSTALLATION_TOP/config/Xsession.d/0020.dtims, will start
+ XCOMM ##    the specified input method server. Should an input method server
+-XCOMM ##    be started from /etc/dt/config/Xsession.d/0020.dtims
++XCOMM ##    be started from CDE_CONFIGURATION_TOP/config/Xsession.d/0020.dtims
+ XCOMM ##    or should an input method server not be desired, unset DTSTARTIMS
+ XCOMM ##    to prevent this file from starting one.
+ XCOMM ##
+@@ -66,7 +66,7 @@ XCOMM
+       zh_CN*    | chinese-s*    )
+ 
+         DTIMS_SCRIPT=0020.dtims
+-        DTIMS_CMD="/usr/dt/bin/dtimsstart -env -shell ksh"
++        DTIMS_CMD="CDE_INSTALLATION_TOP/bin/dtimsstart -env -shell ksh"
+ 
+         if [[ -x "${DTIMS_CMD%% *}" ]]; then
+ 
+diff --git a/programs/dtksh/examples/SessionTest.src b/programs/dtksh/examples/SessionTest.src
+index 740b7f2e7..a3d6cf71c 100644
+--- a/programs/dtksh/examples/SessionTest.src
++++ b/programs/dtksh/examples/SessionTest.src
+@@ -54,7 +54,7 @@ XCOMM      Save the list of workspace we occupy
+ 
+ XCOMM      Tell the session manager how to restart us
+       DtSetStartupCommand $TOPLEVEL \
+-		   "/usr/dt/share/examples/dtksh/SessionTest $SAVEFILE"
++		   "CDE_INSTALLATION_TOP/share/examples/dtksh/SessionTest $SAVEFILE"
+    else
+       echo "DtSessionSavePath FAILED!!"
+       exit -3
+diff --git a/programs/dtlogin/config/0015.sun.env.src b/programs/dtlogin/config/0015.sun.env.src
+index d57d6dc30..e81a92c2c 100644
+--- a/programs/dtlogin/config/0015.sun.env.src
++++ b/programs/dtlogin/config/0015.sun.env.src
+@@ -2,14 +2,14 @@ XCOMM!KORNSHELL
+ XCOMM ####################################################################
+ XCOMM ##  File:              0015.sun.env.src 
+ XCOMM ##
+-XCOMM ##  Default Location:  /usr/dt/config/Xsession.d/
++XCOMM ##  Default Location:  CDE_INSTALLATION_TOP/config/Xsession.d/
+ XCOMM ##
+ XCOMM ##  Purpose:           Setup various items for Solaris desktop support
+ XCOMM ##                     
+ XCOMM ##  Description:       This script is invoked by means of the Xsession file
+ XCOMM ##                     at user login. 
+ XCOMM ##
+-XCOMM ##  Invoked by:        /usr/dt/bin/Xsession
++XCOMM ##  Invoked by:        CDE_INSTALLATION_TOP/bin/Xsession
+ XCOMM ##
+ XCOMM ##  Product:           @(#)Common Desktop Environment 1.0          
+ XCOMM ##
+diff --git a/programs/dtlogin/config/0060.dtsysenv.src b/programs/dtlogin/config/0060.dtsysenv.src
+index 1f9cf6889..106d637bc 100644
+--- a/programs/dtlogin/config/0060.dtsysenv.src
++++ b/programs/dtlogin/config/0060.dtsysenv.src
+@@ -2,7 +2,7 @@ XCOMM!KORNSHELL
+ XCOMM ####################################################################
+ XCOMM ##  File:              0060.srcsysenv
+ XCOMM ##
+-XCOMM ##  Default Location:  /usr/dt/config/Xsession.d/
++XCOMM ##  Default Location:  CDE_INSTALLATION_TOP/config/Xsession.d/
+ XCOMM ##
+ XCOMM ##  Purpose:           Source system-defined environment variables
+ XCOMM ##
+@@ -10,7 +10,7 @@ XCOMM ##  Description:
+ XCOMM ##                     This script is invoked by means of the Xsession
+ XCOMM ##                     file at user login.
+ XCOMM ##
+-XCOMM ##  Invoked by:        /usr/dt/bin/Xsession
++XCOMM ##  Invoked by:        CDE_INSTALLATION_TOP/bin/Xsession
+ XCOMM ##
+ XCOMM ##  $TOG: 0060.srcsysenv.src /main/1 1998/08/03 18:10:08 devobj $
+ XCOMM ##
+diff --git a/programs/dtlogin/config/Xconfig.src b/programs/dtlogin/config/Xconfig.src
+index 6d474df3a..dd4b06b0e 100644
+--- a/programs/dtlogin/config/Xconfig.src
++++ b/programs/dtlogin/config/Xconfig.src
+@@ -49,7 +49,7 @@ Dtlogin.pidFile:               CDE_LOGFILES_TOP/Xpid
+ XCOMM #########################################################################
+ XCOMM  Note: If you do not specify a full path beginning with a "/"
+ XCOMM	dtlogin will first search for the following files in
+-XCOMM	/etc/dt/config then in /usr/dt/config.
++XCOMM	CDE_CONFIGURATION_TOP/config then in CDE_INSTALLATION_TOP/config.
+ XCOMM
+ XCOMM #########################################################################
+ Dtlogin.accessFile:            Xaccess
+diff --git a/programs/dtlogin/config/Xsession.ow.src b/programs/dtlogin/config/Xsession.ow.src
+index 5dba57a31..ac1a1a884 100644
+--- a/programs/dtlogin/config/Xsession.ow.src
++++ b/programs/dtlogin/config/Xsession.ow.src
+@@ -3,7 +3,7 @@ XCOMM $XConsortium: Xsession.ow.src /main/3 1996/11/19 11:41:19 drk $
+ XCOMM ####################################################################
+ XCOMM ##  File:              Xsession.ow
+ XCOMM ##
+-XCOMM ##  Default Location:  /usr/dt/config/Xsession.ow
++XCOMM ##  Default Location:  CDE_INSTALLATION_TOP/config/Xsession.ow
+ XCOMM ##
+ XCOMM ##  Purpose:           OpenWindows session start script
+ XCOMM ##
+diff --git a/programs/dtlogin/config/Xsession.ow2.src b/programs/dtlogin/config/Xsession.ow2.src
+index 340eee57e..3a49f40ec 100644
+--- a/programs/dtlogin/config/Xsession.ow2.src
++++ b/programs/dtlogin/config/Xsession.ow2.src
+@@ -3,11 +3,11 @@ XCOMM $XConsortium: Xsession.ow2.src /main/3 1996/11/19 11:41:57 drk $
+ XCOMM ####################################################################
+ XCOMM ##  File:              Xsession.ow2
+ XCOMM ##
+-XCOMM ##  Default Location:  /usr/dt/config/Xsession.ow2
++XCOMM ##  Default Location:  CDE_INSTALLATION_TOP/config/Xsession.ow2
+ XCOMM ##
+ XCOMM ##  Purpose:           OpenWindows Desktop start script
+ XCOMM ##
+-XCOMM ##  Invoked by:        /usr/dt/bin/Xsession
++XCOMM ##  Invoked by:        CDE_INSTALLATION_TOP/bin/Xsession
+ XCOMM ##
+ XCOMM ##  Revision:          @(#)Xsession.ow2.src 1.3 95/02/16 
+ XCOMM ##
+@@ -16,7 +16,7 @@ XCOMM ##
+ XCOMM ####################################################################
+ 
+ XCOMM First a little namespace cleanup of vars associated with this
+-XCOMM (and /usr/dt/bin/Xsession.ow) scripts.
++XCOMM (and CDE_INSTALLATION_TOP/bin/Xsession.ow) scripts.
+ 
+ unset SDT_ALT_SESSION
+ unset SDT_ALT_HELLO
+diff --git a/programs/dtlogin/config/_common.ksh.src b/programs/dtlogin/config/_common.ksh.src
+index 7100e7afb..b73303e84 100644
+--- a/programs/dtlogin/config/_common.ksh.src
++++ b/programs/dtlogin/config/_common.ksh.src
+@@ -172,7 +172,7 @@ XCOMM ##########################################################################
+  *   language will thus be provided in the KBD_MAP table setup by the
+  *   sysadmin and the keyboard mapping will be done in Xsetup. 
+  *
+- * - using 'xinit /usr/dt/bin/Xsession' from an HFT/LFT
++ * - using 'xinit CDE_INSTALLATION_TOP/bin/Xsession' from an HFT/LFT
+  *   
+  *   Since the keyboard is local, the keyboard mapping will be done in 
+  *   Xsession and the language will be determined via querykbd.
+diff --git a/programs/dtprintegrate/dtlp.src b/programs/dtprintegrate/dtlp.src
+index 45895e1f0..ce4cdd8c9 100755
+--- a/programs/dtprintegrate/dtlp.src
++++ b/programs/dtprintegrate/dtlp.src
+@@ -15,7 +15,7 @@ XCOMM ###################################################################
+ XCOMM
+ XCOMM  File:              dtlp
+ XCOMM
+-XCOMM  Default Location:  /usr/dt/bin/dtlp
++XCOMM  Default Location:  CDE_INSTALLATION_TOP/bin/dtlp
+ XCOMM
+ XCOMM  Purpose:           Set up print spooler options and print.
+ XCOMM
+diff --git a/programs/dtprintegrate/dtlpsetup.src b/programs/dtprintegrate/dtlpsetup.src
+index a9537caff..02d5bfe41 100755
+--- a/programs/dtprintegrate/dtlpsetup.src
++++ b/programs/dtprintegrate/dtlpsetup.src
+@@ -14,10 +14,10 @@ XCOMM  US Government Users Restricted Rights - Use, duplication or
+ XCOMM  disclosure restricted by GSA ADP Schedule Contract with IBM Corp.
+ XCOMM
+ XCOMM
+-XCOMM Add /usr/dt/lib/nls/msg/%L/%N.cat to NLSPATH
++XCOMM Add CDE_INSTALLATION_TOP/lib/nls/msg/%L/%N.cat to NLSPATH
+ XCOMM
+ 
+-NLSPATH=/usr/dt/lib/nls/msg/%L/%N.cat:$NLSPATH
++NLSPATH=CDE_INSTALLATION_TOP/lib/nls/msg/%L/%N.cat:$NLSPATH
+ export NLSPATH
+ 
+ usage="$0 [-b banner_title] [-d lpdest] [-f print_file] 
+@@ -220,7 +220,7 @@ if  [ $NOT_SUPPORTED ]; then
+ \t%1$s \n" "$ARGS"
+ fi
+ 
+-/usr/dt/bin/dtlp "$banner_title" "$lpdest" "$print_command" "$copy_count" "$other_options" "$user_filename" "$a" "$e" "$h" "$r" "$s" "$v" "$w" "$print_file"
++CDE_INSTALLATION_TOP/bin/dtlp "$banner_title" "$lpdest" "$print_command" "$copy_count" "$other_options" "$user_filename" "$a" "$e" "$h" "$r" "$s" "$v" "$w" "$print_file"
+  
+ status=$?
+ 
+diff --git a/programs/dtprintegrate/dtprintegrate.src b/programs/dtprintegrate/dtprintegrate.src
+index 7cd75b473..3d2bd8f4d 100755
+--- a/programs/dtprintegrate/dtprintegrate.src
++++ b/programs/dtprintegrate/dtprintegrate.src
+@@ -3,7 +3,7 @@ XCOMM $XConsortium: dtprintegrate.src /main/5 1996/04/23 12:02:04 drk $
+ XCOMM ####################################################################
+ XCOMM ##  File:              dtprintegrate
+ XCOMM ##
+-XCOMM ##  Default Location:  /usr/dt/bin/dtprintegrate
++XCOMM ##  Default Location:  CDE_INSTALLATION_TOP/bin/dtprintegrate
+ XCOMM ##
+ XCOMM ##  Purpose:           Set up the desktop configuration files for 
+ XCOMM ##                     the desktop components.
+@@ -36,7 +36,7 @@ XCOMM ##  Set default values.
+ XCOMM ##
+ COMMAND_NAME=dtprintegrate
+ 
+-ACTION_STUB_FILE=/usr/dt/appconfig/appmanager/C/Desktop_Apps/Dtcalc
++ACTION_STUB_FILE=CDE_INSTALLATION_TOP/appconfig/appmanager/C/Desktop_Apps/Dtcalc
+ 
+ base_icon_name="Fpprnt"
+ 
+@@ -58,7 +58,7 @@ Initialize()
+     HASH
+     HASH Location for Print action files...
+     HASH
+-    DEFAULT_FOLDER=/etc/dt/appconfig/appmanager/C/Printers
++    DEFAULT_FOLDER=CDE_CONFIGURATION_TOP/appconfig/appmanager/C/Printers
+     DTPRINTERFOLDER=${DTPRINTERFOLDER:-$DEFAULT_FOLDER}
+  
+     if (( ${#DTUSERPRINTERFOLDER} ))
+@@ -74,7 +74,7 @@ Initialize()
+     HASH
+     HASH Location for Print definition (*.dt) files...
+     HASH
+-    DEFAULT_FOLDER=/etc/dt/appconfig/types/C
++    DEFAULT_FOLDER=CDE_CONFIGURATION_TOP/appconfig/types/C
+     DTPRINTACTIONFOLDER=${DTPRINTACTIONFOLDER:-$DEFAULT_FOLDER}
+ 
+     if [ ! -d "$DTPRINTACTIONFOLDER" ]
+@@ -85,13 +85,13 @@ Initialize()
+     HASH
+     HASH Search path for printer icons...
+     HASH
+-    DEFAULT_PATH=.,$HOME/.dt/icons,/usr/dt/appconfig/icons/C
++    DEFAULT_PATH=.,$HOME/.dt/icons,CDE_INSTALLATION_TOP/appconfig/icons/C
+     DTPRINTICONPATH=${DTPRINTICONPATH:-$DEFAULT_PATH}
+ 
+     HASH
+     HASH Location for printer icons...
+     HASH
+-    DEFAULT_FOLDER=/etc/dt/appconfig/icons/C
++    DEFAULT_FOLDER=CDE_CONFIGURATION_TOP/appconfig/icons/C
+     DTPRINTERICONFOLDER=${DTPRINTERICONFOLDER:-$DEFAULT_FOLDER}
+ 
+     HASH
+@@ -220,7 +220,7 @@ MakeDatabaseFile()
+             echo "        EXEC_STRING             env LPDEST=$printer_name \\"
+ 	fi
+ 
+-	echo "				/usr/dt/bin/dtaction Print %(File)Arg_1%"
++	echo "				CDE_INSTALLATION_TOP/bin/dtaction Print %(File)Arg_1%"
+ 	) >> "$databasefile_path"
+ 
+ 	if (( help_flag ))
+@@ -249,7 +249,7 @@ MakeDatabaseFile()
+ 	else
+ 	    echo "	EXEC_STRING		env LPDEST=$printer_name \\"
+ 	fi
+-	echo "				/usr/dt/bin/dtaction Dtqueueinfo"
++	echo "				CDE_INSTALLATION_TOP/bin/dtaction Dtqueueinfo"
+ 	echo "}"
+ 	) >> "$databasefile_path"
+ }
+@@ -513,27 +513,27 @@ ReloadActions() {
+ 	HASH
+ 	HASH  User wants to force reloading actions
+ 	HASH
+-		if [[ -x /usr/dt/bin/dtaction  &&  -n "$DISPLAY" ]]
++		if [[ -x CDE_INSTALLATION_TOP/bin/dtaction  &&  -n "$DISPLAY" ]]
+ 		then
+-			/usr/dt/bin/dtaction ReloadActions
++			CDE_INSTALLATION_TOP/bin/dtaction ReloadActions
+ 		fi
+ 	elif [[ "$display_host" = "$session_host" ]]
+ 	HASH
+ 	HASH  Our session server is running on the desktop
+ 	HASH
+ 	then
+-		if [ -x /usr/dt/bin/dtaction ]
++		if [ -x CDE_INSTALLATION_TOP/bin/dtaction ]
+ 		then
+-			/usr/dt/bin/dtaction ReloadActions
++			CDE_INSTALLATION_TOP/bin/dtaction ReloadActions
+ 		fi
+ 	elif [[ -z "$display_host" && -n "$DISPLAY" ]]
+ 	then
+ 	HASH
+ 	HASH  Covers the case in which the simple value ":0.0" is our $DISPLAY
+ 	HASH
+-		if [ -x /usr/dt/bin/dtaction ]
++		if [ -x CDE_INSTALLATION_TOP/bin/dtaction ]
+ 		then
+-			/usr/dt/bin/dtaction ReloadActions
++			CDE_INSTALLATION_TOP/bin/dtaction ReloadActions
+ 		fi
+ 	fi
+ }
+diff --git a/programs/dtsearchpath/0010.dtpaths.src b/programs/dtsearchpath/0010.dtpaths.src
+index 1185f0fb0..c47d84b26 100644
+--- a/programs/dtsearchpath/0010.dtpaths.src
++++ b/programs/dtsearchpath/0010.dtpaths.src
+@@ -2,7 +2,7 @@ XCOMM!KORNSHELL
+ XCOMM ####################################################################
+ XCOMM ##  File:              0010.dtpaths
+ XCOMM ##
+-XCOMM ##  Default Location:  /usr/dt/config/Xsession.d/
++XCOMM ##  Default Location:  CDE_INSTALLATION_TOP/config/Xsession.d/
+ XCOMM ##
+ XCOMM ##  Purpose:           Provide syntactical information about
+ XCOMM ##                     the CDE searchpaths that the desktop components
+@@ -12,7 +12,7 @@ XCOMM ##                     action files, on behalf of the user.
+ XCOMM ##
+ XCOMM ##  Description:       This file consists of documentation only.
+ XCOMM ##
+-XCOMM ##  Invoked by:        /usr/dt/bin/Xsession
++XCOMM ##  Invoked by:        CDE_INSTALLATION_TOP/bin/Xsession
+ XCOMM ##
+ XCOMM ##  Product:           @(#)Common Desktop Environment 1.0          
+ XCOMM ##
+@@ -33,10 +33,10 @@ XCOMM ####################################################################
+ XCOMM 
+ XCOMM             ************** DO NOT EDIT THIS FILE **************
+ XCOMM 
+-XCOMM    All the files under /usr/dt/config/Xsession.d are factory-default 
++XCOMM    All the files under CDE_INSTALLATION_TOP/config/Xsession.d are factory-default 
+ XCOMM    files and will be unconditionally overwritten upon subsequent 
+ XCOMM    installation. Before making changes to the file, copy it to the 
+-XCOMM    configuration directory, /etc/dt/config/Xsession.d.
++XCOMM    configuration directory, CDE_CONFIGURATION_TOP/config/Xsession.d.
+ XCOMM 
+ XCOMM ####################################################################
+ 
+@@ -51,10 +51,10 @@ XCOMM ##  DTAPPSEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for applications.
+ XCOMM ##	 Inputs:       DTSPSYSAPPHOSTS, DTSPUSERAPPHOSTS
+ XCOMM ##     Default:      $HOME/.dt/appmanager,
+-XCOMM ##                   /etc/dt/appconfig/appmanager/%L,
+-XCOMM ##                   /etc/dt/appconfig/appmanager/C,
+-XCOMM ##                   /usr/dt/appconfig/appmanager/%L,
+-XCOMM ##                   /usr/dt/appconfig/appmanager/C
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/appmanager/%L,
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/appmanager/C,
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/appmanager/%L,
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/appmanager/C
+ XCOMM ##
+ XCOMM ##  DTDATABASESEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for actions and
+@@ -62,37 +62,37 @@ XCOMM ##                   filetypes.
+ XCOMM ##	 Inputs:       DTSPSYSDATABASEHOSTS, DTSPUSERDATABASEHOSTS
+ XCOMM ##     Default:      Derived from DTSPSYSAPPHOSTS
+ XCOMM ##                   $HOME/.dt/types,
+-XCOMM ##                   /etc/dt/appconfig/types/%L,
+-XCOMM ##                   /etc/dt/appconfig/types/C,
+-XCOMM ##                   /usr/dt/appconfig/types/%L,
+-XCOMM ##                   /usr/dt/appconfig/types/C
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/types/%L,
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/types/C,
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/types/%L,
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/types/C
+ XCOMM ##  DTHELPSEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for online help.
+ XCOMM ##	 Inputs:       DTSPSYSHELP, DTSPUSERHELP
+ XCOMM ##     Default:      Derived from DTSPSYSAPPHOSTS
+ XCOMM ##                   $HOME/.dt/help/%T/[ %H | %H.sdl | %H.hv ],
+-XCOMM ##                   /etc/dt/appconfig/help/%L/%T/[ %H | %H.sdl | %H.hv ],
+-XCOMM ##                   /etc/dt/appconfig/help/C/%T/[ %H | %H.sdl | %H.hv ],
+-XCOMM ##                   /usr/dt/appconfig/help/%L/%T/[ %H | %H.sdl | %H.hv ]
+-XCOMM ##                   /usr/dt/appconfig/help/C/%T/[ %H | %H.sdl | %H.hv ]
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/help/%L/%T/[ %H | %H.sdl | %H.hv ],
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/help/C/%T/[ %H | %H.sdl | %H.hv ],
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/help/%L/%T/[ %H | %H.sdl | %H.hv ]
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/help/C/%T/[ %H | %H.sdl | %H.hv ]
+ XCOMM ##  DTINFOLIBSEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for online help.
+ XCOMM ##	 Inputs:       DTSPSYSINFOLIB, DTSPUSERINFOLIB
+ XCOMM ##     Default:      Derived from DTSPSYSAPPHOSTS and DTSPUSERAPPHOSTS
+ XCOMM ##                   $HOME/.dt/infolib/%I.dt
+-XCOMM ##                   /etc/dt/appconfig/infolib/%L/%I.dti
+-XCOMM ##                   /etc/dt/appconfig/infolib/C/%I.dti
+-XCOMM ##                   /usr/dt/appconfig/infolib/%L/%I.dti
+-XCOMM ##                   /usr/dt/appconfig/infolib/C/%I.dti
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/infolib/%L/%I.dti
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/infolib/C/%I.dti
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/infolib/%L/%I.dti
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/infolib/C/%I.dti
+ XCOMM ##  DTICONSEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for icons.
+ XCOMM ##	 Inputs:       DTSPSYSICON, DTSPUSERICON
+ XCOMM ##     Default:      Derived from DTSPSYSAPPHOSTS
+ XCOMM ##                   $HOME/.dt/icons/[ %B.pm | %B.bm | %B ],
+-XCOMM ##                   /etc/dt/appconfig/icons/%L/[ %B.pm | %B.bm | %B ],
+-XCOMM ##                   /etc/dt/appconfig/icons/C/[ %B.pm | %B.bm | %B ],
+-XCOMM ##                   /usr/dt/appconfig/icons/%L/[ %B.pm | %B.bm | %B ]
+-XCOMM ##                   /usr/dt/appconfig/icons/C/[ %B.pm | %B.bm | %B ]
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/icons/%L/[ %B.pm | %B.bm | %B ],
++XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/icons/C/[ %B.pm | %B.bm | %B ],
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/icons/%L/[ %B.pm | %B.bm | %B ]
++XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/icons/C/[ %B.pm | %B.bm | %B ]
+ XCOMM ##
+ XCOMM ####################################################################
+ 
+@@ -126,16 +126,16 @@ XCOMM ####################################################################
+ XCOMM ##  Customization notes:
+ XCOMM ##  -------------------------------------------------
+ XCOMM ##    If you specify a value for one of the system search paths (DTSPSYS
+-XCOMM ##    prefix), then that value will be appended to the /etc/dt/appconfig 
++XCOMM ##    prefix), then that value will be appended to the CDE_CONFIGURATION_TOP/appconfig 
+ XCOMM ##    default search path.  For example, if you specify a value for the 
+ XCOMM ##    DTSPSYSHELP, then your value will be appended to the normal 
+-XCOMM ##    configuration value -- after "/etc/dt/appconfig/help" -- but before
+-XCOMM ##    the factory default location--"/usr/dt/appconfig/help".
++XCOMM ##    configuration value -- after "CDE_CONFIGURATION_TOP/appconfig/help" -- but before
++XCOMM ##    the factory default location--"CDE_INSTALLATION_TOP/appconfig/help".
+ XCOMM ##
+ XCOMM ##    Users may also set the USER equivalents of these search paths. They
+ XCOMM ##    can be done in their $HOME/.dtprofile file, which will be sourced in
+-XCOMM ##    before the scripts under /etc/dt/config/Xsession.d/ and 
+-XCOMM ##    /usr/dt/config/Xsession.d/.
++XCOMM ##    before the scripts under CDE_CONFIGURATION_TOP/config/Xsession.d/ and 
++XCOMM ##    CDE_INSTALLATION_TOP/config/Xsession.d/.
+ XCOMM ##
+ XCOMM ## The names of these USER variables are:
+ XCOMM ##
+diff --git a/programs/dtsession/dtloadresources.src b/programs/dtsession/dtloadresources.src
+index bd033e40e..e4dc7f5f8 100644
+--- a/programs/dtsession/dtloadresources.src
++++ b/programs/dtsession/dtloadresources.src
+@@ -15,7 +15,7 @@ XCOMM ##########################################################################
+ XCOMM #
+ XCOMM #  File:              dtsession_res
+ XCOMM #
+-XCOMM #  Default Location:  /usr/dt/bin/dtsession_res
++XCOMM #  Default Location:  CDE_INSTALLATION_TOP/bin/dtsession_res
+ XCOMM #
+ XCOMM #  Purpose:           Load the RESOURCE_MANAGER with desktop resources
+ XCOMM #
+diff --git a/programs/dtsession/sys.resources.src b/programs/dtsession/sys.resources.src
+index 866522672..906313e28 100644
+--- a/programs/dtsession/sys.resources.src
++++ b/programs/dtsession/sys.resources.src
+@@ -21,7 +21,7 @@
+ !# Font resource values must be a valid font alias name.
+ !#
+ !# Font resource values must match exactly the default font resources 
+-!# specified in /usr/dt/app-defaults/%L/Dtstyle
++!# specified in CDE_INSTALLATION_TOP/app-defaults/%L/Dtstyle
+ !###
+ 
+ XCOMM if WIDTH > 1175
+diff --git a/programs/types/Makefile.am b/programs/types/Makefile.am
+index 836b2e295..0e23e1474 100644
+--- a/programs/types/Makefile.am
++++ b/programs/types/Makefile.am
+@@ -1,7 +1,8 @@
+ MAINTAINERCLEANFILES = Makefile.in
+ 
+ LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
+-	-DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP) -DKORNSHELL=$(KSH) \
++	-DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP) \
++	-DCDE_LOGFILES_TOP=$(CDE_LOGFILES_TOP) -DKORNSHELL=$(KSH) \
+ 	-DDTKORNSHELL=$(CDE_INSTALLATION_TOP)/bin/dtksh
+ 
+ if SOLARIS
+diff --git a/programs/types/datatypes.dt.src b/programs/types/datatypes.dt.src
+index b0f8482bd..36c6ae47e 100644
+--- a/programs/types/datatypes.dt.src
++++ b/programs/types/datatypes.dt.src
+@@ -736,7 +736,7 @@ ACTION Print
+         ARG_TYPE        HTML
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dtlp "%Arg_1%"
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dtlp "%Arg_1%"
+ }
+ 
+ XCOMM #######################################################
+@@ -763,7 +763,7 @@ ACTION Print
+         ARG_TYPE        ENRICHED_TEXT
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dtlp "%Arg_1%"
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dtlp "%Arg_1%"
+ }
+ 
+ XCOMM #######################################################
+@@ -790,7 +790,7 @@ ACTION Print
+         ARG_TYPE        RICHTEXT
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dtlp "%Arg_1%"
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dtlp "%Arg_1%"
+ }
+ 
+ XCOMM #######################################################
+diff --git a/programs/types/develop.dt.src b/programs/types/develop.dt.src
+index 474ac47c6..7d2460087 100644
+--- a/programs/types/develop.dt.src
++++ b/programs/types/develop.dt.src
+@@ -366,7 +366,7 @@ ACTION PrintNm
+         WINDOW_TYPE     NO_STDIO
+         EXEC_STRING     /bin/sh -c ' \
+                         /usr/ccs/bin/nm "%(File)Arg_1%" | \
+-                        /usr/dt/bin/dtlp -u "%|nls-6018-#Symbols List#|"'
++                        CDE_INSTALLATION_TOP/bin/dtlp -u "%|nls-6018-#Symbols List#|"'
+         DESCRIPTION     %|nls-6022-#The Print Symbol List#|
+ }
+ 
+@@ -388,7 +388,7 @@ ACTION PrintNm
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+         EXEC_STRING     /bin/sh -c ' nm "%(File)Arg_1%" | \
+-                        /usr/dt/bin/dtlp -u "%|nls-6018-#Symbols List#|"'
++                        CDE_INSTALLATION_TOP/bin/dtlp -u "%|nls-6018-#Symbols List#|"'
+         DESCRIPTION     %|nls-6022-#The Print Symbol List#|
+ }
+ #endif
+diff --git a/programs/types/dt.dt.src b/programs/types/dt.dt.src
+index 0752ededb..58f4a2604 100644
+--- a/programs/types/dt.dt.src
++++ b/programs/types/dt.dt.src
+@@ -321,9 +321,9 @@ ACTION ReloadApps
+         ARG_COUNT       0
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /bin/sh -c '/usr/dt/bin/dtaction ReloadActions; \
+-                           /usr/dt/bin/dtappgather -r; \
+-			   /usr/dt/bin/dthelpgen -dir $HOME/.dt/help '
++        EXEC_STRING     /bin/sh -c 'CDE_INSTALLATION_TOP/bin/dtaction ReloadActions; \
++                           CDE_INSTALLATION_TOP/bin/dtappgather -r; \
++			   CDE_INSTALLATION_TOP/bin/dthelpgen -dir $HOME/.dt/help '
+         DESCRIPTION     %|nls-2021-#The#|
+ }
+ 
+@@ -348,16 +348,16 @@ ACTION DtwmrcEdit
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+         EXEC_STRING     sh -c 'if [ ! -f $HOME/.dt/dtwmrc ] ; then \
+-                                  if [ ! -f /etc/dt/config/sys.dtwmrc ] ; then \
+-                                    cp /usr/dt/config/$LANG/sys.dtwmrc \
++                                  if [ ! -f CDE_CONFIGURATION_TOP/config/sys.dtwmrc ] ; then \
++                                    cp CDE_INSTALLATION_TOP/config/$LANG/sys.dtwmrc \
+                                                             $HOME/.dt/dtwmrc; \
+                                   else \
+-                                    cp /etc/dt/config/sys.dtwmrc \
++                                    cp CDE_CONFIGURATION_TOP/config/sys.dtwmrc \
+                                                             $HOME/.dt/dtwmrc; \
+                                   fi; \
+                                   chmod u+w $HOME/.dt/dtwmrc; \
+                                fi; \
+-                               /usr/dt/bin/dtaction Open $HOME/.dt/dtwmrc'
++                               CDE_INSTALLATION_TOP/bin/dtaction Open $HOME/.dt/dtwmrc'
+         DESCRIPTION     %|nls-2025-#The#|
+ }
+ 
+@@ -495,7 +495,7 @@ ACTION DttermErrorlog
+         EXEC_STRING     /bin/sh -c 'if [ ! -f $HOME/.dt/errorlog ] ; then \
+                                       /bin/touch $HOME/.dt/errorlog; \
+                                      fi; \
+-                        /usr/dt/bin/dtterm -map -title \
++                        CDE_INSTALLATION_TOP/bin/dtterm -map -title \
+ 			     "%|nls-2039-#Watch#|" \
+                              -e tail -f $HOME/.dt/errorlog'
+         DESCRIPTION     %|nls-2040-#The#|
+@@ -510,7 +510,7 @@ ACTION Dttypes
+         TYPE            COMMAND
+         WINDOW_TYPE     PERM_TERMINAL
+         EXEC_STRING     sh -c ' \
+-                        /usr/dt/bin/dttypes | \${PAGER:-more}; \
++                        CDE_INSTALLATION_TOP/bin/dttypes | \${PAGER:-more}; \
+             echo "%|nls-7-#Select#|"'
+         DESCRIPTION     %|nls-2042-#The#|
+ }
+@@ -519,7 +519,7 @@ ACTION Dttypes
+         LABEL           %|nls-2041-#Types and Actions List#|
+         TYPE            COMMAND
+         WINDOW_TYPE     PERM_TERMINAL
+-        EXEC_STRING     sh -c '/usr/dt/bin/dttypes -type "%(File)Arg_1%"; \
++        EXEC_STRING     sh -c 'CDE_INSTALLATION_TOP/bin/dttypes -type "%(File)Arg_1%"; \
+                  echo "%|nls-7-#Select#|"'
+         DESCRIPTION     %|nls-2042-#The#|
+ }
+diff --git a/programs/types/dtappman.dt.src b/programs/types/dtappman.dt.src
+index 1b5d28e88..0d7694466 100644
+--- a/programs/types/dtappman.dt.src
++++ b/programs/types/dtappman.dt.src
+@@ -53,7 +53,7 @@ ACTION OpenAppGroup
+         TT_ARG2_MODE            TT_IN
+         TT_ARG2_VTYPE           -root
+         TT_ARG2_REP_TYPE        TT_REP_STRING
+-        TT_ARG2_VALUE   	/var/dt/appconfig/appmanager/$DTUSERSESSION
++        TT_ARG2_VALUE   	CDE_LOGFILES_TOP/appconfig/appmanager/$DTUSERSESSION
+         TT_ARG3_MODE            TT_IN
+         TT_ARG3_VTYPE           -common_link_point
+         TT_ARG3_REP_TYPE        TT_REP_STRING
+@@ -78,7 +78,7 @@ ACTION OpenParentAppGroup
+         TT_ARG2_MODE            TT_IN
+         TT_ARG2_VTYPE           -root
+         TT_ARG2_REP_TYPE        TT_REP_STRING
+-        TT_ARG2_VALUE   	/var/dt/appconfig/appmanager/$DTUSERSESSION
++        TT_ARG2_VALUE   	CDE_LOGFILES_TOP/appconfig/appmanager/$DTUSERSESSION
+         TT_ARG3_MODE            TT_IN
+         TT_ARG3_VTYPE           -common_link_point
+         TT_ARG3_REP_TYPE        TT_REP_STRING
+diff --git a/programs/types/dtfile.dt.src b/programs/types/dtfile.dt.src
+index f43834d35..83d048cc1 100644
+--- a/programs/types/dtfile.dt.src
++++ b/programs/types/dtfile.dt.src
+@@ -429,7 +429,7 @@ ACTION Dtappmgr
+         TT_CLASS		TT_REQUEST
+         TT_SCOPE		TT_SESSION
+         TT_OPERATION		DtTools_Show
+-        TT_FILE			/var/dt/appconfig/appmanager/$DTUSERSESSION
++        TT_FILE			CDE_LOGFILES_TOP/appconfig/appmanager/$DTUSERSESSION
+         TT_ARG0_MODE            TT_IN
+         TT_ARG0_VTYPE           -title
+         TT_ARG0_REP_TYPE        TT_REP_STRING
+@@ -663,7 +663,7 @@ ACTION PrintFolderList
+         WINDOW_TYPE     NO_STDIO
+         EXEC_STRING     sh -c ' \
+                         ls -aLlF "%(File)Arg_1%" | \
+-                        /usr/dt/bin/dtlp -u "%(File)Arg_1%"'
++                        CDE_INSTALLATION_TOP/bin/dtlp -u "%(File)Arg_1%"'
+         DESCRIPTION     %|nls-4031-#The PrintFolderList action....#|
+ }
+ 
+diff --git a/programs/types/dthelp.dt.src b/programs/types/dthelp.dt.src
+index 9e7e1c132..e3168ca9a 100644
+--- a/programs/types/dthelp.dt.src
++++ b/programs/types/dthelp.dt.src
+@@ -129,8 +129,8 @@ ACTION Dthelpview
+         ICON		Fphelp
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-        EXEC_STRING     /bin/sh -c '/usr/dt/bin/dthelpgen -dir $HOME/.dt/help/$DTUSERSESSION; \
+-                 /usr/dt/bin/dthelpview -helpVolume browser '
++        EXEC_STRING     /bin/sh -c 'CDE_INSTALLATION_TOP/bin/dthelpgen -dir $HOME/.dt/help/$DTUSERSESSION; \
++                 CDE_INSTALLATION_TOP/bin/dthelpview -helpVolume browser '
+ 	DESCRIPTION	%|nls-11007-#The#|
+ }
+ ACTION Dthelpview
+@@ -139,9 +139,9 @@ ACTION Dthelpview
+         ICON		Fphelp
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-        EXEC_STRING     /bin/sh -c '/usr/dt/bin/dthelpgen 	\
++        EXEC_STRING     /bin/sh -c 'CDE_INSTALLATION_TOP/bin/dthelpgen 	\
+ 			    -dir $HOME/.dt/help/$DTUSERSESSION; \
+-                            /usr/dt/bin/dthelpview -helpVolume "%(File)Arg_1%" '
++                            CDE_INSTALLATION_TOP/bin/dthelpview -helpVolume "%(File)Arg_1%" '
+ 	DESCRIPTION	%|nls-11007-#The#|
+ }
+ 
+@@ -153,7 +153,7 @@ ACTION Dthelpgen
+         ICON		Fphelp
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-        EXEC_STRING     /bin/sh -c '/usr/dt/bin/dthelpgen -dir \
++        EXEC_STRING     /bin/sh -c 'CDE_INSTALLATION_TOP/bin/dthelpgen -dir \
+                          "%(File)Arg_1"%|nls-11015-#Location to put files:#|"%"'
+ 	DESCRIPTION	%|nls-11016-#The#|
+ }
+@@ -163,7 +163,7 @@ ACTION Dthelpgen_delay
+         ICON		Fphelp
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-        EXEC_STRING     /bin/sh -c 'sleep 15; /usr/dt/bin/dthelpgen -dir \
++        EXEC_STRING     /bin/sh -c 'sleep 15; CDE_INSTALLATION_TOP/bin/dthelpgen -dir \
+                          $HOME/.dt/help/$DTUSERSESSION'
+ 	DESCRIPTION	%|nls-11016-#The#|
+ }
+@@ -176,7 +176,7 @@ ACTION Dtmanpageview
+         ICON		Dthover
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-        EXEC_STRING     sh -c ' /usr/dt/bin/dthelpview -manPage \
++        EXEC_STRING     sh -c ' CDE_INSTALLATION_TOP/bin/dthelpview -manPage \
+               `basename "%(File)Arg_1"%|nls-11011-#Man#|"%" | sed /[.].*/s///` \
+               -xrm "Dthelpview*manBox*columns: %|nls-11012-#100#|"'
+ 	DESCRIPTION	%|nls-11013-#The#|
+diff --git a/programs/types/dthelpprint.dt.src b/programs/types/dthelpprint.dt.src
+index 87bb06c86..8f63ae4ca 100644
+--- a/programs/types/dthelpprint.dt.src
++++ b/programs/types/dthelpprint.dt.src
+@@ -45,7 +45,7 @@ ACTION Print
+ 	ARG_TYPE 	DTHELP_PRINT_FILE
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-	EXEC_STRING	/usr/dt/bin/dtlp -f "%(File)Arg_1%" \
++	EXEC_STRING	CDE_INSTALLATION_TOP/bin/dtlp -f "%(File)Arg_1%" \
+                 ${LPDEST:+-d} ${LPDEST:+$LPDEST} \
+                 -n "${DTPRINTCOPYCOUNT:-1}" \
+                 -b "${DTPRINTBANNERTITLE:-CDE Help}" \
+diff --git a/programs/types/dthelptag.dt.src b/programs/types/dthelptag.dt.src
+index 67032c935..4f37e13fb 100644
+--- a/programs/types/dthelptag.dt.src
++++ b/programs/types/dthelptag.dt.src
+@@ -135,7 +135,7 @@ ACTION OpenHelpTag
+         LABEL           %|nls-16008-#OpenHelpTag|
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-	EXEC_STRING	/usr/dt/bin/dtpad "%(File)Arg_1%"
++	EXEC_STRING	CDE_INSTALLATION_TOP/bin/dtpad "%(File)Arg_1%"
+ 	DESCRIPTION	%|nls-16009-#The OpenHelpTag ...#|
+ }
+ 
+diff --git a/programs/types/dtinfo.dt.src b/programs/types/dtinfo.dt.src
+index 60511dd82..ed45e0692 100644
+--- a/programs/types/dtinfo.dt.src
++++ b/programs/types/dtinfo.dt.src
+@@ -155,7 +155,7 @@ ACTION DtInfoStart
+ {
+ 	TYPE				COMMAND
+ 	WINDOW_TYPE			NO_STDIO
+-	EXEC_STRING			/usr/dt/bin/dtinfo \
++	EXEC_STRING			CDE_INSTALLATION_TOP/bin/dtinfo \
+ 		     				-l "%(String)Arg_1%"
+ }
+ 
+@@ -163,7 +163,7 @@ ACTION DtInfoStartAtLoc
+ {
+ 	TYPE				COMMAND
+ 	WINDOW_TYPE			NO_STDIO
+-	EXEC_STRING			/usr/dt/bin/dtinfo \
++	EXEC_STRING			CDE_INSTALLATION_TOP/bin/dtinfo \
+ 		     				-l "%(String)Arg_1%"    \
+ 		     				-sect "%(String)Arg_2%"
+ }
+diff --git a/programs/types/dtpad.dt.src b/programs/types/dtpad.dt.src
+index a09b5648e..76f101f83 100644
+--- a/programs/types/dtpad.dt.src
++++ b/programs/types/dtpad.dt.src
+@@ -61,7 +61,7 @@ ACTION Print
+         ARG_TYPE        TEXTFILE
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dtlp "%Arg_1%"
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dtlp "%Arg_1%"
+ }
+ 
+ XCOMM ##########################################################################
+@@ -83,7 +83,7 @@ ACTION PRINT_DTPAD_TEMPFILE
+ {
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-	EXEC_STRING 	/usr/dt/bin/dtlp -u "%(String)Arg_2%" -e "%(File)Arg_1%"
++	EXEC_STRING 	CDE_INSTALLATION_TOP/bin/dtlp -u "%(String)Arg_2%" -e "%(File)Arg_1%"
+ }
+ 
+ XCOMM #####################
+diff --git a/programs/types/ibm.dt.src b/programs/types/ibm.dt.src
+index 421983691..916a70725 100644
+--- a/programs/types/ibm.dt.src
++++ b/programs/types/ibm.dt.src
+@@ -272,7 +272,7 @@ ACTION NCSA_Mosaic
+      ICON          Dtmosaic
+      TYPE          COMMAND
+      WINDOW_TYPE   NO_STDIO
+-     EXEC_STRING   /usr/dt/bin/dtmosaic
++     EXEC_STRING   CDE_INSTALLATION_TOP/bin/dtmosaic
+      DESCRIPTION   The NCSA_Mosaic action opens the NCSA Mosaic \
+                    hypertext viewer if it exists, or provides \
+                    help in downloading, installing, and configuring \
+@@ -286,7 +286,7 @@ ACTION NCSA_Mosaic
+      ICON          Dtmosaic
+      TYPE          COMMAND
+      WINDOW_TYPE   NO_STDIO
+-     EXEC_STRING   /usr/dt/bin/dtmosaic "%(File)Arg_1%"
++     EXEC_STRING   CDE_INSTALLATION_TOP/bin/dtmosaic "%(File)Arg_1%"
+      DESCRIPTION   The NCSA_Mosaic action opens the NCSA Mosaic \
+                    hypertext viewer if it exists, or provides \
+                    help in downloading, installing, and configuring \
+diff --git a/programs/types/miscImages.dt.src b/programs/types/miscImages.dt.src
+index 8f16480b1..816245081 100644
+--- a/programs/types/miscImages.dt.src
++++ b/programs/types/miscImages.dt.src
+@@ -54,7 +54,7 @@ ACTION Open
+         ARG_TYPE        pict-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26003-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -90,7 +90,7 @@ ACTION Open
+         ARG_TYPE        ppm-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26005-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -120,7 +120,7 @@ ACTION Open
+         ARG_TYPE        pj-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26007-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -156,7 +156,7 @@ ACTION Open
+         ARG_TYPE        pgm-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26009-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -192,7 +192,7 @@ ACTION Open
+    	ARG_TYPE        pbm-file
+    	TYPE            COMMAND
+    	WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26011-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -228,7 +228,7 @@ ACTION Open
+         ARG_TYPE        ilbm-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26013-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -258,7 +258,7 @@ ACTION Open
+         ARG_TYPE        pi1-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26015-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -288,7 +288,7 @@ ACTION Open
+         ARG_TYPE        pcx-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26017-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -318,7 +318,7 @@ ACTION Open
+         ARG_TYPE        tga-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26019-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -348,7 +348,7 @@ ACTION Open
+         ARG_TYPE        xim-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26023-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -378,7 +378,7 @@ ACTION Open
+         ARG_TYPE        mtv-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26025-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -408,7 +408,7 @@ ACTION Open
+         ARG_TYPE        qrt-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26027-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -438,7 +438,7 @@ ACTION Open
+         ARG_TYPE        imgw-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26029-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -468,7 +468,7 @@ ACTION Open
+         ARG_TYPE        sld-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26031-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -498,7 +498,7 @@ ACTION Open
+         ARG_TYPE        spc-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26033-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -528,7 +528,7 @@ ACTION Open
+         ARG_TYPE        spu-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26035-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -558,7 +558,7 @@ ACTION Open
+         ARG_TYPE        gould-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26037-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -588,7 +588,7 @@ ACTION Open
+         ARG_TYPE        fs-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26043-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -618,7 +618,7 @@ ACTION Open
+         ARG_TYPE        fits-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26045-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -654,7 +654,7 @@ ACTION Open
+         ARG_TYPE        lispm-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26047-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -684,7 +684,7 @@ ACTION Open
+         ARG_TYPE        hips-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26072-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -714,7 +714,7 @@ ACTION Open
+         ARG_TYPE        mac-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26052-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -744,7 +744,7 @@ ACTION Open
+         ARG_TYPE        atk-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26054-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -774,7 +774,7 @@ ACTION Open
+         ARG_TYPE        brush-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26056-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -810,7 +810,7 @@ ACTION Open
+         ARG_TYPE        cmu-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26058-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -846,7 +846,7 @@ ACTION Open
+         ARG_TYPE        mgr-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26060-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -876,7 +876,7 @@ ACTION Open
+         ARG_TYPE        g3-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26062-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -906,7 +906,7 @@ ACTION Open
+         ARG_TYPE        img-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26064-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -935,7 +935,7 @@ ACTION Open
+         ARG_TYPE        pi3-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26066-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -971,7 +971,7 @@ ACTION Open
+         ARG_TYPE        ybm-file
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dterror.ds \
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+                            "%|nls-26070-#Cannot#|" \
+                            "%|nls-13-#Information#|" \
+                            "%|nls-6-#OK#|"
+@@ -1005,7 +1005,7 @@ ACTION Open
+ 	ARG_TYPE        photocd-file
+ 	TYPE            COMMAND
+ 	WINDOW_TYPE     NO_STDIO
+-	EXEC_STRING     /usr/dt/bin/dterror.ds \
++	EXEC_STRING     CDE_INSTALLATION_TOP/bin/dterror.ds \
+ 			"%|nls-26074-#Cannot#|" \
+ 			"%|nls-13-#Information#|" \
+ 			"%|nls-6-#OK#|"
+diff --git a/programs/types/unsupported.dt.src b/programs/types/unsupported.dt.src
+index 1e73358f9..3bad58318 100644
+--- a/programs/types/unsupported.dt.src
++++ b/programs/types/unsupported.dt.src
+@@ -39,7 +39,7 @@ ACTION DtTypes
+         ARG_COUNT	0
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	NO_STDIO
+-	EXEC_STRING	CDE_INSTALLATION_TOP/bin/dtterm -e KORNSHELL -c '/usr/dt/bin/dttypes;'
++	EXEC_STRING	CDE_INSTALLATION_TOP/bin/dtterm -e KORNSHELL -c 'CDE_INSTALLATION_TOP/bin/dttypes;'
+ 	DESCRIPTION	%|nls-9002-#The#|
+ }
+ ACTION DtTypes
+@@ -47,7 +47,7 @@ ACTION DtTypes
+         LABEL		%|nls-32-#DtTypes#|
+ 	TYPE		COMMAND
+ 	WINDOW_TYPE	PERM_TERMINAL
+-	EXEC_STRING	sh -c '/usr/dt/bin/dttypes -type "%(File)Arg_1%"; \
++	EXEC_STRING	sh -c 'CDE_INSTALLATION_TOP/bin/dttypes -type "%(File)Arg_1%"; \
+                  echo "%|nls-9011-#Select#|"'
+ 	DESCRIPTION	%|nls-9002-#The#|
+ }
+@@ -70,7 +70,7 @@ ACTION DisplayFont
+ 	EXEC_STRING	sh -c '/usr/lpp/X11/bin/xfd -fn \
+                 `basename "%(File)Arg_1"%|nls-9012-#Font#|"%" | sed /[.].*/s///`;\
+ 	                if [ \$? -eq 1 ] ; then \
+-                                 /usr/dt/bin/dterror.ds \
++                                 CDE_INSTALLATION_TOP/bin/dterror.ds \
+                                    "%|nls-9014-#The Font#|" \
+                                    "%|nls-9015-#Invalid#|" \
+                                    "%|nls-21002-#OK#|" ; \
+@@ -128,7 +128,7 @@ ACTION DisplayFont
+ 	EXEC_STRING	sh -c '/usr/openwin/bin/xfd -fn \
+                 `basename "%(File)Arg_1"%|nls-9012-#Font#|"%" | sed /[.].*/s///`;\
+ 	                if [ \$? -eq 1 ] ; then \
+-                                 /usr/dt/bin/dterror.ds \
++                                 CDE_INSTALLATION_TOP/bin/dterror.ds \
+                                    "%|nls-9014-#The Font#|" \
+                                    "%|nls-9015-#Invalid#|" \
+                                    "%|nls-21002-#OK#|" ; \
+diff --git a/programs/types/uxstd.dt.src b/programs/types/uxstd.dt.src
+index 05c39dbfe..ce6287050 100644
+--- a/programs/types/uxstd.dt.src
++++ b/programs/types/uxstd.dt.src
+@@ -62,7 +62,7 @@ ACTION Print
+         ARG_TYPE        MAN_PAGE
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     /usr/dt/bin/dtlp -a "%Arg_1%"
++        EXEC_STRING     CDE_INSTALLATION_TOP/bin/dtlp -a "%Arg_1%"
+ }
+ 
+ XCOMM ##########################################################
+@@ -114,7 +114,7 @@ ACTION PrintTarList
+         WINDOW_TYPE     NO_STDIO
+         EXEC_STRING     sh -c ' \
+                         tar -tvf "%(File)Arg_1%" | \
+-                           /usr/dt/bin/dtlp -u "%|nls-10003-#Archive Li#|"'
++                           CDE_INSTALLATION_TOP/bin/dtlp -u "%|nls-10003-#Archive Li#|"'
+ 	DESCRIPTION	%|nls-10006-#The TarList#|
+ }
+ ACTION TarUnpack
+@@ -458,13 +458,13 @@ ACTION Tar
+ 	EXEC_STRING	\
+           sh -c ' \
+            if [ "%(File)Args%" = "" ] ; then \
+-                /usr/dt/bin/dterror.ds \
++                CDE_INSTALLATION_TOP/bin/dterror.ds \
+             "%|nls-10036-#The#|" \
+             "%|nls-10037-#Invalid#|" \
+             "%|nls-6-#OK#|" ; \
+            else \
+            true %(File)Args%; \
+-           /usr/dt/bin/dterror.ds \
++           CDE_INSTALLATION_TOP/bin/dterror.ds \
+             "%|nls-10036-#The#|" \
+             "%|nls-10037-#Invalid#|" \
+             "%|nls-6-#OK#|" \
+diff --git a/programs/types/xclients.dt.src b/programs/types/xclients.dt.src
+index 88c25a033..a568ca6e1 100644
+--- a/programs/types/xclients.dt.src
++++ b/programs/types/xclients.dt.src
+@@ -174,7 +174,7 @@ ACTION DttermRlogin
+         TYPE            COMMAND
+         WINDOW_TYPE     NO_STDIO
+         EXEC_STRING     KORNSHELL -c 'export _title="%"%|nls-12017-#Hostname:#|"%"; \
+-            /usr/dt/bin/dtterm -title "%|nls-12022-#\$_title#|" -e KORNSHELL -c \
++            CDE_INSTALLATION_TOP/bin/dtterm -title "%|nls-12022-#\$_title#|" -e KORNSHELL -c \
+             "echo %|nls-12023-#Trying to#|; \
+             rlogin \$_title; sleep 5;";'
+ 	DESCRIPTION	%|nls-12024-#The#|
+@@ -271,7 +271,7 @@ ACTION Xfd
+ 	EXEC_STRING	sh -c 'xfd -fn \
+                 "%(String)Arg_1"%|nls-12040-#Font#|"%"; \
+ 	               if [ \$? -eq 1 ] ; then \
+-                         /usr/dt/bin/dterror.ds \
++                         CDE_INSTALLATION_TOP/bin/dterror.ds \
+                           "%|nls-12041-#The font#|" \
+                           "%|nls-12042-#Font Name#|" \
+                           "%|nls-6-#OK#|" ; \

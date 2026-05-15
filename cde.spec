@@ -42,6 +42,14 @@ Patch2:         0003-configure-make-cde-paths-overridable.patch
 # literals in 31 source files to use the CDE_*_TOP macros from Patch2 so the
 # packager's --with-cde-* overrides actually flow into compiled binaries.
 Patch3:         0004-cleanup-cc-literals-use-cde-macros.patch
+# Phase 3: equivalent cleanup for the .src files that go through tradcpp at
+# build time (programs/types/*.dt.src, programs/dtlogin/config/*.src, etc.).
+Patch4:         0005-cleanup-src-files-use-cde-macros.patch
+# Phase 4: convert contrib/ templates (cde.desktop, dtlogin.service, xinetd
+# snippets, OS rc scripts, desktop2dt) to autoconf .in files.
+Patch5:         0006-contrib-convert-to-autoconf-in-files.patch
+# Phase 5: util/check-fhs.sh validation gate.
+Patch6:         0007-util-add-check-fhs-validation.patch
 
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc

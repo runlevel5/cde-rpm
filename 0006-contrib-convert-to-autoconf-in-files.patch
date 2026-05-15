@@ -1,0 +1,258 @@
+---
+diff --git a/configure.ac b/configure.ac
+index 1a01b8bf3..f12230d3e 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -963,6 +963,17 @@ copyright
+ doc/common/help/HELPEnt.sgm
+ include/Dt/Dt.h
+ lib/tt/bin/ttauth/ttauth.man
++
++contrib/desktopentry/cde.desktop
++contrib/rc/systemd/dtlogin.service
++contrib/rc/linux/dtlogin
++contrib/rc/freebsd/dtlogin
++contrib/rc/netbsd/dtlogin
++contrib/rc/openbsd/dtlogin
++contrib/rc/openbsd/cmsd
++contrib/xinetd/cmsd
++contrib/xinetd/ttdbserver
++contrib/desktop2dt/desktop2dt
+ ])
+ 
+ AC_OUTPUT
+diff --git a/contrib/desktop2dt/desktop2dt b/contrib/desktop2dt/desktop2dt.in
+similarity index 87%
+rename from cde/contrib/desktop2dt/desktop2dt
+rename to cde/contrib/desktop2dt/desktop2dt.in
+index a071fc41d..f50cbab87 100644
+--- a/contrib/desktop2dt/desktop2dt
++++ b/contrib/desktop2dt/desktop2dt.in
+@@ -37,9 +37,9 @@ usage(){
+   echo "Usage: $0"' [-i] [-a] some.desktop ...'
+   echo "generates some.dt and the appropriate icons"
+   echo "If -i is specified, some.dt and the icons are installed"
+-  echo '(in $DESTDIR/etc/dt if possible, otherwise in $HOME/.dt)'
++  echo '(in $DESTDIR@CDE_CONFIGURATION_TOP@ if possible, otherwise in $HOME/.dt)'
+   echo 'If -a is specified, appmanager files are created'
+-  echo '(in $DESTDIR/etc/dt/appconfig/appmanager/C or $HOME/.dt/appmanager)'
++  echo '(in $DESTDIR@CDE_CONFIGURATION_TOP@/appconfig/appmanager/C or $HOME/.dt/appmanager)'
+   exit 1
+ }
+ 
+@@ -129,18 +129,18 @@ do
+       PREFIX="$XPREFIX"; export PREFIX
+     ;;
+     -i*)
+-      mkdir -p "$DESTDIR/etc/dt/appconfig/types/C" && \
+-      canwrite "$DESTDIR/etc/dt/appconfig/types/C/aaa.xyz.test" && \
+-      INSTALLDIR="$DESTDIR/etc/dt/appconfig/types/C/" \
+-      ICONDIR="$DESTDIR/etc/dt/appconfig/icons/C/" || \
++      mkdir -p "$DESTDIR@CDE_CONFIGURATION_TOP@/appconfig/types/C" && \
++      canwrite "$DESTDIR@CDE_CONFIGURATION_TOP@/appconfig/types/C/aaa.xyz.test" && \
++      INSTALLDIR="$DESTDIR@CDE_CONFIGURATION_TOP@/appconfig/types/C/" \
++      ICONDIR="$DESTDIR@CDE_CONFIGURATION_TOP@/appconfig/icons/C/" || \
+       INSTALLDIR="$HOME/.dt/types/" ICONDIR="$HOME/.dt/icons/"
+       export ICONDIR INSTALLDIR
+       mkdir -p "$ICONDIR" "$INSTALLDIR"
+     ;;
+     -a)
+-      mkdir -p "$DESTDIR/etc/dt/appconfig/appmanager/C" && \
+-      canwrite "$DESTDIR/etc/dt/appconfig/appmanager/C/aaa.xyz.test" && \
+-      APPMGR="$DESTDIR/etc/dt/appconfig/appmanager/C" || \
++      mkdir -p "$DESTDIR@CDE_CONFIGURATION_TOP@/appconfig/appmanager/C" && \
++      canwrite "$DESTDIR@CDE_CONFIGURATION_TOP@/appconfig/appmanager/C/aaa.xyz.test" && \
++      APPMGR="$DESTDIR@CDE_CONFIGURATION_TOP@/appconfig/appmanager/C" || \
+       APPMGR="$HOME/.dt/appmanager"
+       export APPMGR
+       #echo $APPMGR
+diff --git a/contrib/desktopentry/cde.desktop b/contrib/desktopentry/cde.desktop.in
+similarity index 87%
+rename from cde/contrib/desktopentry/cde.desktop
+rename to cde/contrib/desktopentry/cde.desktop.in
+index bf7b21a83..7b791c956 100644
+--- a/contrib/desktopentry/cde.desktop
++++ b/contrib/desktopentry/cde.desktop.in
+@@ -3,6 +3,6 @@ Name=CDE
+ DesktopNames=CDE
+ Comment=Use this session to boot into the Common Desktop Environment
+ Keywords=Common Desktop Environment
+-Exec=/usr/dt/bin/Xsession
++Exec=@bindir@/Xsession
+ Icon=Dtlogo.pm
+ Type=Application
+diff --git a/contrib/rc/freebsd/dtlogin b/contrib/rc/freebsd/dtlogin.in
+old mode 100755
+new mode 100644
+similarity index 92%
+rename from cde/contrib/rc/freebsd/dtlogin
+rename to cde/contrib/rc/freebsd/dtlogin.in
+index 3f79913ad..ccd8d8a8f
+--- a/contrib/rc/freebsd/dtlogin
++++ b/contrib/rc/freebsd/dtlogin.in
+@@ -1,6 +1,6 @@
+ #!/bin/sh
+ # Script to start dtlogin upon system boot for FreeBSD
+-# Instructions: 
++# Instructions:
+ # Put this script in /usr/local/etc/rc.d (owned and read/execute by root.)
+ # Use dtlogin_enable="YES" in /etc/rc.conf to enable dtlogin startup.
+ #
+@@ -16,7 +16,7 @@
+ name=dtlogin
+ rcvar=dtlogin_enable
+ 
+-command="/usr/dt/bin/dtlogin"
++command="@bindir@/dtlogin"
+ command_args="&"
+ 
+ dtlogin_prestart()
+@@ -30,5 +30,3 @@ dtlogin_prestart()
+ 
+ load_rc_config $name
+ run_rc_command "$1"
+-
+-
+diff --git a/contrib/rc/linux/dtlogin b/contrib/rc/linux/dtlogin.in
+similarity index 77%
+rename from cde/contrib/rc/linux/dtlogin
+rename to cde/contrib/rc/linux/dtlogin.in
+index c5f17a688..2749c6ff0 100644
+--- a/contrib/rc/linux/dtlogin
++++ b/contrib/rc/linux/dtlogin.in
+@@ -2,30 +2,30 @@
+ ### BEGIN INIT INFO
+ # Provides:		lsb-dtlogin
+ # Required-Start:	$all
+-# Required-Stop:	
++# Required-Stop:
+ # Default-Start:	2 3 4 5
+ # Default-Stop:		0 1 6
+ # Short-Description:	Dtlogin
+ # Description:		Dtlogin
+ ### END INIT INFO
+ 
+-export PATH="/usr/dt/bin:$PATH"
++export PATH="@bindir@:$PATH"
+ OPTIONS="-quiet -daemon"
+ 
+ start(){
+-	if [ -z "$(pgrep /usr/dt/bin/dtlogin)" ];
++	if [ -z "$(pgrep @bindir@/dtlogin)" ];
+ 	then
+ 		echo " * Starting dtlogin..."
+ 		export LANG=C
+-		/usr/dt/bin/dtlogin $OPTIONS
++		@bindir@/dtlogin $OPTIONS
+ 	fi
+ }
+ 
+ stop(){
+-	if [ -n "$(pgrep /usr/dt/bin/dtlogin)" ];
++	if [ -n "$(pgrep @bindir@/dtlogin)" ];
+ 	then
+ 		echo " * Stopping dtlogin..."
+-		killall /usr/dt/bin/dtlogin
++		killall @bindir@/dtlogin
+ 	fi
+ }
+ 
+diff --git a/contrib/rc/netbsd/dtlogin b/contrib/rc/netbsd/dtlogin.in
+old mode 100755
+new mode 100644
+similarity index 79%
+rename from cde/contrib/rc/netbsd/dtlogin
+rename to cde/contrib/rc/netbsd/dtlogin.in
+index 5fafbfb8e..1db4f6b99
+--- a/contrib/rc/netbsd/dtlogin
++++ b/contrib/rc/netbsd/dtlogin.in
+@@ -7,9 +7,9 @@ $_rc_subr_loaded . /etc/rc.subr
+ 
+ name="dtlogin"
+ rcvar=$name
+-command="/usr/dt/bin/${name}"
++command="@bindir@/${name}"
+ command_args="-daemon"
+-pidfile=/var/dt/Xpid
++pidfile=@CDE_LOGFILES_TOP@/Xpid
+ extra_commands=""
+ 
+ load_rc_config $name
+diff --git a/contrib/rc/openbsd/cmsd b/contrib/rc/openbsd/cmsd.in
+old mode 100755
+new mode 100644
+similarity index 85%
+rename from cde/contrib/rc/openbsd/cmsd
+rename to cde/contrib/rc/openbsd/cmsd.in
+index 407a821f8..f1c18def7
+--- a/contrib/rc/openbsd/cmsd
++++ b/contrib/rc/openbsd/cmsd.in
+@@ -1,4 +1,4 @@
+-daemon="/usr/dt/bin/rpc.cmsd &"
++daemon="@bindir@/rpc.cmsd &"
+ 
+ . /etc/rc.d/rc.subr
+ 
+diff --git a/contrib/rc/openbsd/dtlogin b/contrib/rc/openbsd/dtlogin.in
+old mode 100755
+new mode 100644
+similarity index 92%
+rename from cde/contrib/rc/openbsd/dtlogin
+rename to cde/contrib/rc/openbsd/dtlogin.in
+index 73838e22a..34432c12b
+--- a/contrib/rc/openbsd/dtlogin
++++ b/contrib/rc/openbsd/dtlogin.in
+@@ -1,6 +1,6 @@
+ #!/bin/ksh
+ 
+-daemon="/usr/dt/bin/dtlogin"
++daemon="@bindir@/dtlogin"
+ 
+ . /etc/rc.d/rc.subr
+ 
+diff --git a/contrib/rc/systemd/dtlogin.service b/contrib/rc/systemd/dtlogin.service.in
+similarity index 81%
+rename from cde/contrib/rc/systemd/dtlogin.service
+rename to cde/contrib/rc/systemd/dtlogin.service.in
+index cdf5dbfe0..9c282ec7e 100644
+--- a/contrib/rc/systemd/dtlogin.service
++++ b/contrib/rc/systemd/dtlogin.service.in
+@@ -5,7 +5,7 @@ Requires=rpcbind.service
+ After=systemd-user-sessions.service
+ 
+ [Service]
+-ExecStart=/usr/dt/bin/dtlogin -nodaemon
++ExecStart=@bindir@/dtlogin -nodaemon
+ 
+ [Install]
+ Alias=display-manager.service
+diff --git a/contrib/xinetd/cmsd b/contrib/xinetd/cmsd.in
+similarity index 86%
+rename from cde/contrib/xinetd/cmsd
+rename to cde/contrib/xinetd/cmsd.in
+index 3758b02e7..37641f14d 100644
+--- a/contrib/xinetd/cmsd
++++ b/contrib/xinetd/cmsd.in
+@@ -8,6 +8,6 @@ service cmsd
+     protocol	= udp
+     wait	= yes
+     user	= root
+-    server	= /usr/dt/bin/rpc.cmsd
++    server	= @bindir@/rpc.cmsd
+     only_from 	= 127.0.0.1/0
+ }
+diff --git a/contrib/xinetd/ttdbserver b/contrib/xinetd/ttdbserver.in
+similarity index 84%
+rename from cde/contrib/xinetd/ttdbserver
+rename to cde/contrib/xinetd/ttdbserver.in
+index 185bd2dbf..2cb00a04a 100644
+--- a/contrib/xinetd/ttdbserver
++++ b/contrib/xinetd/ttdbserver.in
+@@ -8,6 +8,6 @@ service ttdbserver
+     protocol	= tcp
+     wait	= yes
+     user	= root
+-    server	= /usr/dt/bin/rpc.ttdbserver
++    server	= @bindir@/rpc.ttdbserver
+     only_from 	= 127.0.0.1/0
+ }
