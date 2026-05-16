@@ -1,0 +1,45 @@
+From: CDE packaging <packaging@cdesktopenv>
+Subject: Dt: disable Motif color object globally for CDE clients
+
+Modern Motif (2.3.x as shipped by Fedora) calls XConvertSelection on
+_MOTIF_DEFAULT_COLORS from inside the Initialize method of widgets that
+pull in the XmDisplay color object. The desktop color server (dtsession)
+owns that selection.
+
+Inside dtsession itself the request deadlocks: the call happens before the
+main event loop starts, and dtsession cannot reply to its own selection
+request. In every other CDE client the request only incurs a libXt
+selection timeout per widget (default ~5s), but front-panel-heavy clients
+(dtwm, dtfile, dtmail, dtcm) initialise dozens of widgets, so logins
+become unbearably slow even when they eventually succeed.
+
+Setting *useColorObj:False in the Dt common app-defaults (every CDE Motif
+client does `# include "Dt"`) skips the color object lookup entirely.
+This is safe because dtsession's color server already writes the palette
+foreground/background to the X resource database via _DtAddToResource;
+Motif still reads correct colors.
+
+--- a/lib/DtSvc/DtUtil2/Dt.ad
++++ b/lib/DtSvc/DtUtil2/Dt.ad
+@@ -17,6 +17,20 @@
+
+ *foregroundThreshold:	70
+
++!#
++!# Disable Motif's per-process color object. Modern Motif (2.3.x as
++!# shipped by Fedora) calls XConvertSelection on _MOTIF_DEFAULT_COLORS
++!# from inside widget Initialize. The selection owner is dtsession;
++!# inside dtsession itself the request deadlocks (the event loop has
++!# not started yet), and in every other CDE client it incurs a 5-second
++!# libXt selection timeout per widget, which the front-panel-heavy
++!# clients (dtwm, dtfile, dtmail) make excruciatingly visible.
++!#
++!# CDE writes its palette colors into the X resource database
++!# (DtAddToResource), so disabling the color object lookup is safe:
++!# Motif still gets the correct foreground/background from xrdb.
++!#
++*useColorObj:		False
++
+ !########
+ !#
+ !#   Help system specific resources

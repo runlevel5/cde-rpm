@@ -86,7 +86,7 @@ fi
 
 echo "==> Staging spec, sources, and patches"
 install -m 0644 "$SPEC" "$TOPDIR/SPECS/cde.spec"
-for f in cde.pam dtlogin.service cde.desktop ld.so.conf-cde.conf README.Fedora; do
+for f in cde.pam dtlogin.service cde.desktop ld.so.conf-cde.conf README.Fedora rpc.cmsd.service; do
     install -m 0644 "$PKG_DIR/$f" "$TOPDIR/SOURCES/"
 done
 for p in "$PKG_DIR"/*.patch; do

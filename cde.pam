@@ -1,17 +1,10 @@
 #%PAM-1.0
 # PAM configuration for the CDE display manager (dtlogin).
-# Modeled after Fedora's gdm/sddm PAM stack.
-
-auth        substack      system-auth
-auth        optional      pam_gnome_keyring.so
-account     required      pam_nologin.so
-account     include       system-auth
-password    include       system-auth
-session     required      pam_selinux.so close
-session     required      pam_loginuid.so
-session     optional      pam_console.so
-session     required      pam_selinux.so open
-session     optional      pam_keyinit.so force revoke
-session     required      pam_namespace.so
-session     include       system-auth
-session     optional      pam_gnome_keyring.so auto_start
+# Delegate to Fedora's system-auth stack for all four phases. Previous
+# versions tried to mimic gdm's hand-rolled stack, but that included
+# pam_console.so (removed from Fedora long ago) and pam_namespace.so
+# in a way that caused pam_unix to report "user unknown" during auth.
+auth     include  system-auth
+account  include  system-auth
+password include  system-auth
+session  include  system-auth

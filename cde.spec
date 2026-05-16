@@ -27,6 +27,7 @@ Source2:        dtlogin.service
 Source3:        cde.desktop
 Source4:        ld.so.conf-cde.conf
 Source5:        README.Fedora
+Source6:        rpc.cmsd.service
 
 # Drop the K&R-era strstr() redeclaration in dthelp/htag2 that conflicts
 # with glibc's _Generic-based <string.h> declaration.
@@ -36,25 +37,29 @@ Patch0:         0001-fproto-drop-strstr-redeclaration.patch
 Patch1:         0002-include-config-h-stub-for-motif.patch
 # Make CDE_INSTALLATION_TOP / CDE_CONFIGURATION_TOP / CDE_LOGFILES_TOP
 # overridable via --with-cde-{config,state,libexec,data}-dir flags.
-# Required to put /etc/cde and /var/lib/cde in proper FHS locations.
 Patch2:         0003-configure-make-cde-paths-overridable.patch
 # Convert raw "/usr/dt/...", "/etc/dt/...", "/var/dt/..." string literals
-# in C/C++ source to CDE_*_TOP macros so the packager's --with-cde-*
-# overrides actually flow into compiled binaries.
+# in C/C++ source to CDE_*_TOP macros.
 Patch3:         0004-cleanup-cc-literals-use-cde-macros.patch
-# Equivalent cleanup for the .src files that go through tradcpp at build
-# time (programs/types/*.dt.src, programs/dtlogin/config/*.src, etc.).
+# Equivalent cleanup for the .src files that go through tradcpp at build time.
 Patch4:         0005-cleanup-src-files-use-cde-macros.patch
-# Convert contrib/ templates (cde.desktop, dtlogin.service, xinetd
-# snippets, OS rc scripts, desktop2dt) to autoconf .in files.
+# Convert contrib/ templates to autoconf .in files.
 Patch5:         0006-contrib-convert-to-autoconf-in-files.patch
-# util/check-fhs.sh validation gate that grep-checks an installed tree
-# for surviving /usr/dt, /etc/dt, /var/dt literals.
+# util/check-fhs.sh validation gate.
 Patch6:         0007-util-add-check-fhs-validation.patch
-# Split CDE_DATA_TOP from CDE_INSTALLATION_TOP so packagers can place
-# data under /usr/share/cde instead of polluting /usr root; also rename
-# programs/types/dt{mail,cm}.dt to .src so they get tradcpp'd.
+# Split CDE_DATA_TOP from CDE_INSTALLATION_TOP; rename dt{mail,cm}.dt to .src.
 Patch7:         0008-split-data-top-and-finish-dt-conversion.patch
+# Dt: set *useColorObj:False globally to avoid the Motif 2.3.x color-object
+# deadlock during widget Initialize. dtsession itself hangs (loading screen,
+# no dtwm); every other CDE client survives but pays a 5s libXt selection
+# timeout per Motif widget, making dtwm/dtfile/dtmail logins glacial.
+Patch8:         0009-dt-disable-motif-color-object.patch
+# Finish the FHS migration for dtinfo and the data-only directories:
+# fix the second InfoLibSearchPath copy of /usr/dt missed by Patch0008,
+# and drop the /share/ infix + legacy compat symlinks from
+# backdrops/palettes so the install layout matches the compiled-in
+# DT_BACKDROPSEARCHPATH/DTINFOLIBSEARCHPATH probes.
+Patch9:         0010-fhs-finish-dtinfo-and-data-dirs.patch
 
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc
@@ -110,6 +115,15 @@ Requires:       ncompress
 Provides:       /usr/dt/bin/dtksh
 Requires:       sessreg
 Requires:       xorg-x11-fonts-misc
+# CDE fontaliases reference -adobe-{helvetica,times,courier}-*-iso8859-1
+# bitmap PCFs. Fedora ships those families only as iso10646-1 by default;
+# the ISO8859-1 re-encoded variants live in these subpackages, so pull
+# them in explicitly. Without them, Motif text in dtinfo / dtfile / etc.
+# renders as empty rectangles (no matching font for the requested XLFD).
+Requires:       xorg-x11-fonts-ISO8859-1-100dpi
+Requires:       xorg-x11-fonts-ISO8859-1-75dpi
+# mkfontdir is invoked in %post to regenerate fonts.dir for the alias dirs.
+Requires(post): xorg-x11-font-utils
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 
@@ -199,32 +213,23 @@ Japanese (ja_JP.UTF-8) localization for CDE.
 
 %build
 ./autogen.sh
-# CDE keeps /usr/dt as its data namespace; move bin/lib/include/man into FHS in %install.
-# PAM dir is forced to /etc/pam.d (configure heuristic only does that for /usr or /usr/local prefix).
-# Warning-suppression flags must go through ./configure so that configure's
-# own additions (e.g. -I/usr/include/tirpc for libtirpc) are preserved in the
-# Makefiles. Overriding CFLAGS/CXXFLAGS at make-time would clobber them.
+# Full FHS layout. %configure forces bin/lib/include/man into the standard
+# Fedora locations; the --with-cde-* flags (Patch0003) steer CDE's
+# arch-independent data namespace into /usr/share/cde, configuration into
+# /etc/cde, runtime state into /var/lib/cde, internal helpers into
+# /usr/libexec/cde. Patch0008 makes the codebase actually honor those.
 export CFLAGS="%{optflags} -Wno-error -Wno-format-truncation -Wno-write-strings -Wno-unused-result -fno-strict-aliasing -fcommon"
 export CXXFLAGS="$CFLAGS"
-# The bundled ksh93 has text relocations on ppc64le that conflict with
-# Fedora's default `-Wl,-z,now`. Allow them with `-z,notext` (matches what
-# the Fedora ksh package itself does).
 export LDFLAGS="%{?build_ldflags} -Wl,-z,notext"
-# Note: --prefix=/usr/dt sets CDE_INSTALLATION_TOP to /usr/dt (CDE's data
-# namespace), but %configure also passes --bindir=/usr/bin, --libdir=/usr/lib64,
-# --includedir=/usr/include, --mandir=/usr/share/man, etc. CDE's install hooks
-# detect bindir != $prefix/bin and automatically create the /usr/dt/bin ->
-# /usr/bin compat symlink so the ~247 hardcoded /usr/dt/bin/<...> paths still
-# resolve. Same for include/man.
 %configure \
-    --prefix=/usr/dt \
+    --prefix=/usr \
     --sysconfdir=/etc \
     --localstatedir=/var \
     --with-pam-dir=/etc/pam.d \
-    --with-cde-data-dir=/usr/dt \
-    --with-cde-config-dir=/etc/dt \
-    --with-cde-state-dir=/var/dt \
-    --with-cde-libexec-dir=/usr/bin \
+    --with-cde-data-dir=%{_datadir}/cde \
+    --with-cde-config-dir=%{_sysconfdir}/cde \
+    --with-cde-state-dir=/var/lib/cde \
+    --with-cde-libexec-dir=%{_libexecdir}/cde \
     --enable-german \
     --enable-french \
     --enable-spanish \
@@ -237,43 +242,129 @@ export LDFLAGS="%{?build_ldflags} -Wl,-z,notext"
 %install
 %make_install
 
-# CDE's own install hook creates a /usr/dt/bin -> /usr/bin compat symlink
-# (because $bindir != $prefix/bin); same idea for include and man via
-# install-data-hook. No manual relocation needed here.
+# Patch0008 migrated the CDE arch-independent data tree to $(CDE_DATA_TOP)
+# but left the "config" subdir on $(CDE_INSTALLATION_TOP). With --prefix=/usr
+# that puts config at /usr/config -- non-FHS. Move it to /etc/cde/config
+# where CDE_CONFIGURATION_TOP already points.
+if [ -d %{buildroot}/usr/config ]; then
+    mkdir -p %{buildroot}%{_sysconfdir}/cde
+    mv %{buildroot}/usr/config %{buildroot}%{_sysconfdir}/cde/config
+fi
 
-# Drop the placeholder ld.so.conf.d entry (libs are in default /usr/lib64).
+# Xsession is CDE's per-login bootstrap script (modeled after
+# /etc/gdm/Xsession). FHS-idiomatic location is /etc/<dm>/Xsession; move
+# it from /usr/bin/Xsession to /etc/cde/Xsession and leave a /usr/bin
+# symlink behind for backwards-compat with the path baked into dtlogin's
+# compiled binary.
+if [ -e %{buildroot}%{_bindir}/Xsession ]; then
+    mv %{buildroot}%{_bindir}/Xsession %{buildroot}%{_sysconfdir}/cde/Xsession
+    ln -s %{_sysconfdir}/cde/Xsession %{buildroot}%{_bindir}/Xsession
+fi
+
+# CDE upstream drops CONTRIBUTORS/COPYING/HISTORY/README straight under
+# $(CDE_INSTALLATION_TOP). With --prefix=/usr that's root-level pollution
+# at /usr/CONTRIBUTORS etc. We ship the docs via %doc/%license. Drop them.
+# (KEEP /usr/copyright -- dthello reads it as the CDE splash-screen text;
+# deleting it breaks the loading screen.) The backdrops/palettes compat
+# symlinks are dropped at the Makefile level by Patch0010.
+rm -f %{buildroot}/usr/CONTRIBUTORS \
+      %{buildroot}/usr/COPYING \
+      %{buildroot}/usr/HISTORY \
+      %{buildroot}/usr/README.md
+
+# Some .dt files embed shell commands inside sh -c '...' single quotes.
+# tradcpp doesn't expand macros inside those quotes (it respects shell
+# quoting), so CDE_INSTALLATION_TOP and XCOMM survive unsubstituted into
+# the installed file. Post-process to fix.
+for f in %{buildroot}%{_datadir}/cde/appconfig/types/*/*.dt; do
+    [ -e "$f" ] && sed -i \
+        -e 's|CDE_INSTALLATION_TOP/bin|%{_bindir}|g' \
+        -e 's|CDE_INSTALLATION_TOP/|%{_datadir}/cde/|g' \
+        -e 's|CDE_CONFIGURATION_TOP|%{_sysconfdir}/cde|g' \
+        -e 's|CDE_LOGFILES_TOP|/var/lib/cde|g' \
+        -e 's|XCOMM|#|g' \
+        "$f"
+done
+
+# Tell the dynamic linker about /usr/lib64 (no-op; placeholder hook).
 install -D -m 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/ld.so.conf.d/cde.conf
 
-# systemd unit (display manager)
+# systemd unit (display manager) and PAM file land in their FHS spots.
 install -D -m 0644 %{SOURCE2} %{buildroot}%{_unitdir}/dtlogin.service
-
-# PAM configuration for dtlogin
+install -D -m 0644 %{SOURCE6} %{buildroot}%{_unitdir}/rpc.cmsd.service
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/pam.d/dtlogin
-
-# X session entry (so gdm/sddm/lightdm offer "CDE" at login)
 install -D -m 0644 %{SOURCE3} %{buildroot}%{_datadir}/xsessions/cde.desktop
-
-# README explaining the FHS layout
 install -D -m 0644 %{SOURCE5} %{buildroot}%{_docdir}/%{name}/README.Fedora
 
-# /var/dt — runtime state directory
-install -d %{buildroot}/var/dt
-install -d %{buildroot}/var/dt/appconfig
-install -d %{buildroot}/var/dt/tmp
+# Runtime state directories under /var/lib/cde
+install -d %{buildroot}/var/lib/cde
+install -d %{buildroot}/var/lib/cde/appconfig
+install -d %{buildroot}/var/lib/cde/tmp
+
+# /var/spool/calendar must be daemon:daemon mode 3777 (sgid + sticky).
+# rpc.cmsd refuses to start if perms are wrong (it tries chown but fails
+# as non-root). %attr in %files re-applies the ownership at install time.
+install -d -m 3777 %{buildroot}/var/spool/calendar
 
 # Drop libtool .la files (Fedora policy)
 find %{buildroot} -name '*.la' -delete
 
+# Rewrite CDE's font aliases to target adobe-{times,helvetica,courier}
+# bitmap fonts (which Fedora actually ships, in xorg-x11-fonts-ISO8859-1-*)
+# instead of -b&h-lucida-* (proprietary, not available in any Fedora repo).
+# Without this, Motif text in dtinfo / dtfile / dtwm renders as empty
+# rectangles because every alias target resolves to a missing font.
+for f in %{buildroot}%{_sysconfdir}/cde/fontaliases/fonts.alias \
+         %{buildroot}%{_datadir}/cde/fontaliases/fonts.alias; do
+    [ -e "$f" ] && sed -i \
+        -e 's/-b&h-lucidabright-/-adobe-times-/g' \
+        -e 's/-b&h-lucidatypewriter-/-adobe-courier-/g' \
+        -e 's/-b&h-lucida-/-adobe-helvetica-/g' "$f"
+done
+
 %post
 /sbin/ldconfig
-%systemd_post dtlogin.service
+%systemd_post dtlogin.service rpc.cmsd.service
+# Regenerate fonts.dir for both CDE alias directories so the X server
+# picks them up. Both dirs are on the X font path via /etc/X11/fontpath.d.
+for d in %{_sysconfdir}/cde/fontaliases %{_datadir}/cde/fontaliases; do
+    [ -d "$d" ] && mkfontdir "$d" >/dev/null 2>&1 || :
+done
+# Getting-started reminder (visible during interactive dnf install).
+if [ $1 -eq 1 ]; then
+cat <<'EOF'
+
+=================================================================
+ Common Desktop Environment (CDE) installed.
+
+ 1. Make sure rpcbind is running (required for ToolTalk and dtcm):
+        sudo systemctl enable --now rpcbind.service
+
+ 2. To use dtcm (Calendar Manager), also enable the calendar daemon:
+        sudo systemctl enable --now rpc.cmsd.service
+
+ 3. To use dtlogin as the system display manager (replaces gdm):
+        sudo systemctl disable gdm.service
+        sudo systemctl enable  dtlogin.service
+        sudo reboot
+
+ 4. To start a CDE session from startx instead, drop in ~/.xinitrc:
+        exec /etc/cde/Xsession
+    and (optionally) copy /etc/cde/config/sys.dtprofile to ~/.dtprofile.
+
+ See /usr/share/doc/cde/README.Fedora for the full layout, font
+ dependency notes, and troubleshooting tips.
+=================================================================
+
+EOF
+fi
 
 %preun
-%systemd_preun dtlogin.service
+%systemd_preun dtlogin.service rpc.cmsd.service
 
 %postun
 /sbin/ldconfig
-%systemd_postun_with_restart dtlogin.service
+%systemd_postun_with_restart dtlogin.service rpc.cmsd.service
 
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
@@ -283,92 +374,90 @@ find %{buildroot} -name '*.la' -delete
 %license COPYING
 %doc README.md HISTORY CONTRIBUTORS
 %doc %{_docdir}/%{name}/README.Fedora
-# Binaries (real, in /usr/bin)
+# Binaries, libexec, etc. — FHS standard locations.
+# /usr/bin/Xsession is a symlink → /etc/cde/Xsession (which is the
+# real file). FHS-idiomatic: matches /etc/gdm/Xsession convention.
 %{_bindir}/*
-# Compatibility symlink CDE itself creates: /usr/dt/bin -> /usr/bin
-/usr/dt/bin
-# CDE data namespace
-%dir /usr/dt
-/usr/dt/CONTRIBUTORS
-/usr/dt/COPYING
-/usr/dt/HISTORY
-/usr/dt/README.md
-/usr/dt/copyright
-%dir /usr/dt/app-defaults
-/usr/dt/app-defaults/C
-/usr/dt/app-defaults/en_US.UTF-8
-%dir /usr/dt/config
-%config(noreplace) /usr/dt/config/C
-/usr/dt/config/en_US.UTF-8
-%config(noreplace) /usr/dt/config/Xaccess
-%config(noreplace) /usr/dt/config/Xconfig
-%config(noreplace) /usr/dt/config/Xfailsafe
-%config(noreplace) /usr/dt/config/Xreset
-%config(noreplace) /usr/dt/config/Xservers
-/usr/dt/config/Xsession.d
-%config(noreplace) /usr/dt/config/Xsetup
-%config(noreplace) /usr/dt/config/Xstartup
-%config(noreplace) /usr/dt/config/sys.dtprofile
-/usr/dt/config/dtspcdenv
-/usr/dt/config/dtterm.ti
-/usr/dt/config/ims
-/usr/dt/config/svc
-%dir /usr/dt/appconfig
-%dir /usr/dt/appconfig/types
-/usr/dt/appconfig/types/C
-/usr/dt/appconfig/types/en_US.UTF-8
-/usr/dt/appconfig/tttypes
-%dir /usr/dt/appconfig/icons
-/usr/dt/appconfig/icons/C
-%dir /usr/dt/appconfig/appmanager
-/usr/dt/appconfig/appmanager/C
-/usr/dt/appconfig/appmanager/en_US.UTF-8
-%dir /usr/dt/share
-%dir /usr/dt/share/backdrops
-/usr/dt/share/backdrops/desc.C
-/usr/dt/share/backdrops/desc.en_US.UTF-8
-/usr/dt/share/backdrops/*.bm
-/usr/dt/share/backdrops/*.pm
-%dir /usr/dt/share/palettes
-/usr/dt/share/palettes/desc.C
-/usr/dt/share/palettes/desc.en_US.UTF-8
-/usr/dt/share/palettes/*.dp
-/usr/dt/backdrops
-/usr/dt/palettes
-%dir /usr/dt/lib
-%dir /usr/dt/lib/nls
-%dir /usr/dt/lib/nls/msg
-/usr/dt/lib/nls/msg/C
-/usr/dt/lib/nls/msg/en_US.UTF-8
-# Auxiliary install dirs
+# dtmail needs setgid mail so it can read /var/spool/mail/<user>.
+# dtappgather needs setuid root for its per-user app-manager population.
+# Upstream's install-exec-hook tries to set these via chgrp/chown but
+# fails silently in unprivileged rpm builds, so re-apply the modes here.
+%attr(2755, root, mail) %{_bindir}/dtmail
+%attr(4755, root, root) %{_bindir}/dtappgather
+# Splash-screen content displayed by dthello at session login.
+/usr/copyright
+%config(noreplace) %{_sysconfdir}/cde/Xsession
 %dir %{_libdir}/cde
 %{_libdir}/cde/dtdocbook
 %dir %{_libdir}/dtksh
 %{_libdir}/dtksh/DtFuncs.dtsh
 %dir %{_libexecdir}/cde
 %{_libexecdir}/cde/dtdocbook
+# CDE arch-independent data namespace at /usr/share/cde
 %dir %{_datadir}/cde
+%{_datadir}/cde/app-defaults
+%{_datadir}/cde/appconfig
 %{_datadir}/cde/dtdocbook
 %{_datadir}/cde/fontaliases
+%{_datadir}/cde/share
+%dir %{_datadir}/cde/lib
+%{_datadir}/cde/lib/nls
+%exclude %{_datadir}/cde/app-defaults/de_DE.UTF-8
+%exclude %{_datadir}/cde/app-defaults/fr_FR.UTF-8
+%exclude %{_datadir}/cde/app-defaults/es_ES.UTF-8
+%exclude %{_datadir}/cde/app-defaults/it_IT.UTF-8
+%exclude %{_datadir}/cde/app-defaults/ja_JP.UTF-8
+%exclude %{_datadir}/cde/appconfig/types/de_DE.UTF-8
+%exclude %{_datadir}/cde/appconfig/types/fr_FR.UTF-8
+%exclude %{_datadir}/cde/appconfig/types/es_ES.UTF-8
+%exclude %{_datadir}/cde/appconfig/types/it_IT.UTF-8
+%exclude %{_datadir}/cde/appconfig/types/ja_JP.UTF-8
+%exclude %{_datadir}/cde/appconfig/appmanager/de_DE.UTF-8
+%exclude %{_datadir}/cde/appconfig/appmanager/fr_FR.UTF-8
+%exclude %{_datadir}/cde/appconfig/appmanager/es_ES.UTF-8
+%exclude %{_datadir}/cde/appconfig/appmanager/it_IT.UTF-8
+%exclude %{_datadir}/cde/appconfig/appmanager/ja_JP.UTF-8
+%exclude %{_datadir}/cde/appconfig/icons/ja
+%exclude %{_datadir}/cde/lib/nls/msg/de_DE.UTF-8
+%exclude %{_datadir}/cde/lib/nls/msg/fr_FR.UTF-8
+%exclude %{_datadir}/cde/lib/nls/msg/es_ES.UTF-8
+%exclude %{_datadir}/cde/lib/nls/msg/it_IT.UTF-8
+%exclude %{_datadir}/cde/lib/nls/msg/ja_JP.UTF-8
+%exclude %{_datadir}/cde/backdrops/desc.de_DE.UTF-8
+%exclude %{_datadir}/cde/backdrops/desc.fr_FR.UTF-8
+%exclude %{_datadir}/cde/backdrops/desc.es_ES.UTF-8
+%exclude %{_datadir}/cde/backdrops/desc.it_IT.UTF-8
+%exclude %{_datadir}/cde/backdrops/desc.ja_JP.UTF-8
+%exclude %{_datadir}/cde/palettes/desc.de_DE.UTF-8
+%exclude %{_datadir}/cde/palettes/desc.fr_FR.UTF-8
+%exclude %{_datadir}/cde/palettes/desc.es_ES.UTF-8
+%exclude %{_datadir}/cde/palettes/desc.it_IT.UTF-8
+%exclude %{_datadir}/cde/palettes/desc.ja_JP.UTF-8
+# Config under /etc/cde
 %dir %{_sysconfdir}/cde
+%config(noreplace) %{_sysconfdir}/cde/config
 %{_sysconfdir}/cde/fontaliases
-# Config + integration files we install
+%exclude %{_sysconfdir}/cde/config/de_DE.UTF-8
+%exclude %{_sysconfdir}/cde/config/fr_FR.UTF-8
+%exclude %{_sysconfdir}/cde/config/es_ES.UTF-8
+%exclude %{_sysconfdir}/cde/config/it_IT.UTF-8
+%exclude %{_sysconfdir}/cde/config/ja_JP.UTF-8
+# FHS integration files
 %config(noreplace) %{_sysconfdir}/pam.d/dtlogin
 %config(noreplace) %{_sysconfdir}/pam.d/dtsession
 %{_sysconfdir}/ld.so.conf.d/cde.conf
 %{_unitdir}/dtlogin.service
+%{_unitdir}/rpc.cmsd.service
 %{_datadir}/xsessions/cde.desktop
-# Variable state
-%dir /var/dt
-%dir /var/dt/appconfig
-%dir /var/dt/tmp
-%dir /var/spool/calendar
+# Runtime state under /var/lib/cde (replaces /var/dt via --with-cde-state-dir)
+%dir /var/lib/cde
+%dir /var/lib/cde/appconfig
+%dir /var/lib/cde/tmp
+%attr(3777, daemon, daemon) %dir /var/spool/calendar
 
 %files libs
 %{_libdir}/lib*.so.*
 %{_libdir}/lib*.so
-# Move /usr/dt/CONTRIBUTORS etc. into main pkg (already listed there) so libs
-# stays purely the .so* files.
 
 %files devel
 %{_includedir}/Dt
@@ -377,55 +466,55 @@ find %{buildroot} -name '*.la' -delete
 %{_libdir}/lib*.a
 
 %files doc
-/usr/dt/infolib
+%{_datadir}/cde/infolib
 
 %files langpack-de
-/usr/dt/app-defaults/de_DE.UTF-8
-/usr/dt/config/de_DE.UTF-8
-/usr/dt/appconfig/types/de_DE.UTF-8
-/usr/dt/appconfig/appmanager/de_DE.UTF-8
-/usr/dt/lib/nls/msg/de_DE.UTF-8
-/usr/dt/share/backdrops/desc.de_DE.UTF-8
-/usr/dt/share/palettes/desc.de_DE.UTF-8
+%{_datadir}/cde/app-defaults/de_DE.UTF-8
+%{_sysconfdir}/cde/config/de_DE.UTF-8
+%{_datadir}/cde/appconfig/types/de_DE.UTF-8
+%{_datadir}/cde/appconfig/appmanager/de_DE.UTF-8
+%{_datadir}/cde/lib/nls/msg/de_DE.UTF-8
+%{_datadir}/cde/share/backdrops/desc.de_DE.UTF-8
+%{_datadir}/cde/share/palettes/desc.de_DE.UTF-8
 
 %files langpack-fr
-/usr/dt/app-defaults/fr_FR.UTF-8
-/usr/dt/config/fr_FR.UTF-8
-/usr/dt/appconfig/types/fr_FR.UTF-8
-/usr/dt/appconfig/appmanager/fr_FR.UTF-8
-/usr/dt/lib/nls/msg/fr_FR.UTF-8
-/usr/dt/share/backdrops/desc.fr_FR.UTF-8
-/usr/dt/share/palettes/desc.fr_FR.UTF-8
+%{_datadir}/cde/app-defaults/fr_FR.UTF-8
+%{_sysconfdir}/cde/config/fr_FR.UTF-8
+%{_datadir}/cde/appconfig/types/fr_FR.UTF-8
+%{_datadir}/cde/appconfig/appmanager/fr_FR.UTF-8
+%{_datadir}/cde/lib/nls/msg/fr_FR.UTF-8
+%{_datadir}/cde/share/backdrops/desc.fr_FR.UTF-8
+%{_datadir}/cde/share/palettes/desc.fr_FR.UTF-8
 
 %files langpack-es
-/usr/dt/app-defaults/es_ES.UTF-8
-/usr/dt/config/es_ES.UTF-8
-/usr/dt/appconfig/types/es_ES.UTF-8
-/usr/dt/appconfig/appmanager/es_ES.UTF-8
-/usr/dt/lib/nls/msg/es_ES.UTF-8
-/usr/dt/share/backdrops/desc.es_ES.UTF-8
-/usr/dt/share/palettes/desc.es_ES.UTF-8
+%{_datadir}/cde/app-defaults/es_ES.UTF-8
+%{_sysconfdir}/cde/config/es_ES.UTF-8
+%{_datadir}/cde/appconfig/types/es_ES.UTF-8
+%{_datadir}/cde/appconfig/appmanager/es_ES.UTF-8
+%{_datadir}/cde/lib/nls/msg/es_ES.UTF-8
+%{_datadir}/cde/share/backdrops/desc.es_ES.UTF-8
+%{_datadir}/cde/share/palettes/desc.es_ES.UTF-8
 
 %files langpack-it
-/usr/dt/app-defaults/it_IT.UTF-8
-/usr/dt/config/it_IT.UTF-8
-/usr/dt/appconfig/types/it_IT.UTF-8
-/usr/dt/appconfig/appmanager/it_IT.UTF-8
-/usr/dt/lib/nls/msg/it_IT.UTF-8
-/usr/dt/share/backdrops/desc.it_IT.UTF-8
-/usr/dt/share/palettes/desc.it_IT.UTF-8
+%{_datadir}/cde/app-defaults/it_IT.UTF-8
+%{_sysconfdir}/cde/config/it_IT.UTF-8
+%{_datadir}/cde/appconfig/types/it_IT.UTF-8
+%{_datadir}/cde/appconfig/appmanager/it_IT.UTF-8
+%{_datadir}/cde/lib/nls/msg/it_IT.UTF-8
+%{_datadir}/cde/share/backdrops/desc.it_IT.UTF-8
+%{_datadir}/cde/share/palettes/desc.it_IT.UTF-8
 
 %files langpack-ja
-/usr/dt/app-defaults/ja_JP.UTF-8
-/usr/dt/config/ja_JP.UTF-8
-/usr/dt/appconfig/types/ja_JP.UTF-8
-/usr/dt/appconfig/appmanager/ja_JP.UTF-8
-/usr/dt/appconfig/icons/ja
-/usr/dt/lib/nls/msg/ja_JP.UTF-8
-/usr/dt/share/backdrops/desc.ja_JP.UTF-8
-/usr/dt/share/palettes/desc.ja_JP.UTF-8
+%{_datadir}/cde/app-defaults/ja_JP.UTF-8
+%{_sysconfdir}/cde/config/ja_JP.UTF-8
+%{_datadir}/cde/appconfig/types/ja_JP.UTF-8
+%{_datadir}/cde/appconfig/appmanager/ja_JP.UTF-8
+%{_datadir}/cde/appconfig/icons/ja
+%{_datadir}/cde/lib/nls/msg/ja_JP.UTF-8
+%{_datadir}/cde/share/backdrops/desc.ja_JP.UTF-8
+%{_datadir}/cde/share/palettes/desc.ja_JP.UTF-8
 
 %changelog
-* Fri May 15 2026 Trung Le <trung.le@ruby-journal.com> - 2.5.3-1
+* Fri May 15 2026 Trung Lê <8@tle.id.au> - 2.5.3-1
 - Initial Fedora packaging (--prefix=/usr/dt with FHS placement of
   binaries, libraries, headers and man pages under /usr/{bin,lib64,include,share/man}).

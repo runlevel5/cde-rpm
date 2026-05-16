@@ -3,90 +3,119 @@ CDE on Fedora
 
 Filesystem layout
 -----------------
-This package follows the Filesystem Hierarchy Standard (FHS) for the
-parts users and the toolchain interact with directly:
+This package follows the Filesystem Hierarchy Standard (FHS):
 
     /usr/bin/dt*                    CDE binaries
+    /usr/bin/Xsession               symlink -> /etc/cde/Xsession
     /usr/lib64/libDt*.so*           CDE shared libraries
     /usr/lib64/libtt*.so*           ToolTalk libraries
-    /usr/include/{Dt,DtI,Tt,Xm,csa,SPC,bms,codelibs}/
-                                    development headers
+    /usr/lib64/{cde,dtksh}/         CDE-internal helpers
+    /usr/libexec/cde/               CDE-internal libexec helpers
+    /usr/include/{Dt,Tt,csa}/       development headers
     /usr/share/man/man{1,3,4,5,6}/  manual pages
-    /etc/dt/                        system configuration (CDE_CONFIGURATION_TOP)
-    /etc/pam.d/dtlogin              PAM configuration for the display manager
-    /var/dt/                        runtime state (CDE_LOGFILES_TOP)
+    /usr/share/cde/                 CDE arch-independent data
+        app-defaults/               X resource defaults per locale
+        appconfig/                  types, icons, help, appmanager
+        share/{backdrops,palettes}/
+        infolib/                    dtinfo content
+        lib/nls/msg/                X/Open NLS message catalogues
+        fontaliases/                CDE -> X11 font alias table
+    /etc/cde/
+        config/                     Xsession.d, dtlogin scripts
+        Xsession                    per-login bootstrap (real file)
+        fontaliases/                same as above (different fontpath entry)
+    /etc/pam.d/{dtlogin,dtsession}  PAM configuration
+    /var/lib/cde/                   runtime state (tmp/, appconfig/)
     /usr/lib/systemd/system/dtlogin.service
+    /usr/lib/systemd/system/rpc.cmsd.service
     /usr/share/xsessions/cde.desktop
-
-CDE's own runtime data namespace remains under /usr/dt/:
-
-    /usr/dt/app-defaults/           X resource defaults per locale
-    /usr/dt/config/                 Xsession.d, dtlogin scripts, etc.
-    /usr/dt/appconfig/              types, icons, help, appmanager
-    /usr/dt/share/{backdrops,palettes}/
-    /usr/dt/infolib/                dtinfo content
-    /usr/dt/lib/nls/msg/            X/Open NLS message catalogues
-
-The /usr/dt subtree is kept because CDE source files contain on the order
-of 247 hardcoded references to /usr/dt/<...> paths. Relocating those names
-into /usr/share/cde would require patching across the source tree.
-
-For backwards compatibility, the following symlinks let hardcoded paths
-continue to resolve:
-
-    /usr/dt/bin     -> /usr/bin
-    /usr/dt/include -> /usr/include
-    /usr/dt/man     -> /usr/share/man
 
 Display manager
 ---------------
-This package installs dtlogin as a systemd display-manager.service alias.
-If you already run gdm, sddm, or lightdm, only one display manager can be
-active at a time. To switch:
+dtlogin ships as a systemd display-manager.service alias. If you already
+run gdm/sddm/lightdm, only one display manager can be active at a time:
 
-    systemctl disable gdm.service        # or sddm/lightdm
-    systemctl enable  dtlogin.service
-    systemctl reboot
+    sudo systemctl disable gdm.service        # or sddm/lightdm
+    sudo systemctl enable  dtlogin.service
+    sudo reboot
 
-ToolTalk and CMSD
------------------
-The ToolTalk database server (rpc.ttdbserverd) and the calendar daemon
-(rpc.cmsd) are RPC services. They require rpcbind:
+To go back:
 
-    systemctl enable --now rpcbind.service
+    sudo systemctl disable dtlogin.service
+    sudo systemctl enable gdm.service
+    sudo reboot
 
-Fedora no longer ships xinetd by default. If you want the legacy xinetd
-launchers, install the xinetd package and copy the configuration snippets
-from /usr/dt/contrib/xinetd/.
+Starting CDE without dtlogin (startx)
+-------------------------------------
+You can also run CDE under your existing display manager by writing a
+~/.xinitrc that calls CDE's session bootstrap:
+
+    cat > ~/.xinitrc <<EOF
+    #!/bin/sh
+    exec /etc/cde/Xsession
+    EOF
+    chmod +x ~/.xinitrc
+    cp /etc/cde/config/sys.dtprofile ~/.dtprofile     # optional template
+    startx
+
+Calendar manager (dtcm) and ToolTalk
+------------------------------------
+dtcm (Calendar) and the various ToolTalk-aware actions need rpcbind
+running. They also need their respective RPC daemons:
+
+    sudo systemctl enable --now rpcbind.service
+    sudo systemctl enable --now rpc.cmsd.service       # for dtcm
+
+ToolTalk's rpc.ttdbserverd is launched on demand by ttsession; no
+permanent systemd unit needed for it.
+
+If you see "rpc.cmsd is not responding for your username" in dtcm, the
+fix is `systemctl start rpc.cmsd.service`. The %post message at install
+time also reminds you of this.
+
+Fonts
+-----
+CDE applications request bitmap fonts via -dt-{application,interface}-*
+XLFDs that get resolved through aliases in
+/etc/cde/fontaliases/fonts.alias. The historical alias targets were
+Bigelow & Holmes Lucida bitmap fonts, which Fedora dropped due to
+licensing. This package rewrites the alias targets in %install to point
+at adobe-{times,helvetica,courier} families (which Fedora ships in
+xorg-x11-fonts-ISO8859-1-{75,100}dpi -- pulled in as Requires).
+
+If Motif text in dtinfo / dtfile / dtwm shows as empty rectangles, the
+font path or aliases are broken. Diagnose with:
+
+    DISPLAY=:0 xset q | grep -A1 "Font Path"
+    DISPLAY=:0 xlsfonts -fn "-dt-application-medium-r-normal-sans-*-*-*-*-p-*-iso8859-1"
+
+The first should include /etc/cde/fontaliases and the second should
+print at least one matching XLFD. If not, re-run:
+
+    sudo mkfontdir /etc/cde/fontaliases /usr/share/cde/fontaliases
+    sudo systemctl restart dtlogin
 
 Known limitation: NLS path strings
 ----------------------------------
-A few user-facing comments inside built `.dt` files (autoStart.dt,
-datatypes.dt, etc.) and some `app-defaults` files (Dtcm) still mention
-"/etc/dt/types" or "/var/dt/appconfig/...". These come from translatable
-message catalogues under programs/localized/<locale>/{types,app-defaults}/
-*.tmsg, where the path is part of human-readable text targeted at
-translators. They do not affect the runtime path lookup -- the actions
-themselves (EXEC_STRING fields, file paths used by the dt parser) DO
-honor the configure-time --with-cde-* overrides.
-
-Fixing the comment text would require touching dozens of .tmsg files
-across all locales; it is left for a future cleanup pass. If the
-incorrect-looking comments bother you, run:
-
-    sed -i 's|/etc/dt|/etc/cde|g; s|/var/dt|/var/lib/cde|g' \
-        $RPM_BUILD_ROOT/usr/share/cde/appconfig/types/C/*.dt
-
-(adjust paths to whatever --with-cde-* values you used).
+A few user-facing comments inside built .dt files and some app-defaults
+(Dtcm, Dtudcfonted) still mention "/etc/dt/types" or "/var/dt/appconfig"
+in their translator-targeted comment text. These come from message
+catalogues under programs/localized/<locale>/*/*.tmsg and do not affect
+runtime path lookup -- the EXEC_STRING fields and dt parser file paths
+all honor the configure-time --with-cde-* overrides. The cosmetic
+mismatch is left for a future cleanup pass over the .tmsg files.
 
 Building from source
 --------------------
-The spec relocates parts of the install in %install. To build by hand
-without RPM, use the same configure invocation:
+To build by hand without RPM with the same FHS layout:
 
     ./autogen.sh
-    ./configure --prefix=/usr/dt --sysconfdir=/etc --localstatedir=/var \
-                --mandir=/usr/dt/man --with-pam-dir=/etc/pam.d \
+    ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
+                --with-pam-dir=/etc/pam.d \
+                --with-cde-data-dir=/usr/share/cde \
+                --with-cde-config-dir=/etc/cde \
+                --with-cde-state-dir=/var/lib/cde \
+                --with-cde-libexec-dir=/usr/libexec/cde \
                 --enable-german --enable-french --enable-spanish \
                 --enable-italian --enable-japanese --enable-docs
     make

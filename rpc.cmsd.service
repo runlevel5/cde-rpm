@@ -1,0 +1,14 @@
+[Unit]
+Description=CDE Calendar Manager RPC daemon (rpc.cmsd)
+Documentation=man:rpc.cmsd(1)
+Requires=rpcbind.service
+After=rpcbind.service
+
+[Service]
+# rpc.cmsd daemonises itself (fork+detach), so use Type=forking.
+Type=forking
+ExecStart=/usr/bin/rpc.cmsd
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
