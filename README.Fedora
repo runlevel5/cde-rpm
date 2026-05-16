@@ -59,6 +59,26 @@ Fedora no longer ships xinetd by default. If you want the legacy xinetd
 launchers, install the xinetd package and copy the configuration snippets
 from /usr/dt/contrib/xinetd/.
 
+Known limitation: NLS path strings
+----------------------------------
+A few user-facing comments inside built `.dt` files (autoStart.dt,
+datatypes.dt, etc.) and some `app-defaults` files (Dtcm) still mention
+"/etc/dt/types" or "/var/dt/appconfig/...". These come from translatable
+message catalogues under programs/localized/<locale>/{types,app-defaults}/
+*.tmsg, where the path is part of human-readable text targeted at
+translators. They do not affect the runtime path lookup -- the actions
+themselves (EXEC_STRING fields, file paths used by the dt parser) DO
+honor the configure-time --with-cde-* overrides.
+
+Fixing the comment text would require touching dozens of .tmsg files
+across all locales; it is left for a future cleanup pass. If the
+incorrect-looking comments bother you, run:
+
+    sed -i 's|/etc/dt|/etc/cde|g; s|/var/dt|/var/lib/cde|g' \
+        $RPM_BUILD_ROOT/usr/share/cde/appconfig/types/C/*.dt
+
+(adjust paths to whatever --with-cde-* values you used).
+
 Building from source
 --------------------
 The spec relocates parts of the install in %install. To build by hand

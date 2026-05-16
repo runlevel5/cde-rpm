@@ -1,0 +1,2490 @@
+From: Trung Le <trung.le@ruby-journal.com>
+Subject: split CDE_DATA_TOP from CDE_INSTALLATION_TOP, finish dt-source
+ conversion
+
+The previous patch added a CDE_DATA_TOP configure option but the rest
+of the codebase still treated CDE_INSTALLATION_TOP as both prefix and
+data namespace. As a result, packagers who passed --prefix=/usr ended
+up with /usr/app-defaults, /usr/appconfig, /usr/share/backdrops,
+/usr/lib/nls/msg, etc. -- root-level dirs polluting /usr/.
+
+This change wires CDE_DATA_TOP through everywhere data-namespace paths
+appear, leaving CDE_INSTALLATION_TOP for binaries / libraries / man.
+After this, --with-cde-data-dir=/usr/share/cde keeps everything
+arch-independent under /usr/share/cde/.
+
+Concretely:
+
+  $(CDE_INSTALLATION_TOP)/{app-defaults,appconfig,share,infolib,
+                            backdrops,palettes,lib/nls,lib/dtudcfonted}
+  ->  $(CDE_DATA_TOP)/...
+                                    [Makefile.am, ~24 files]
+
+  CDE_INSTALLATION_TOP "<data-suffix>"   in C/C++/headers
+  ->  CDE_DATA_TOP "<data-suffix>"      [~29 files / 79 substitutions]
+
+  CDE_INSTALLATION_TOP/<data-suffix>     in tradcpp .src/.dt
+  ->  CDE_DATA_TOP/<data-suffix>        [~9 files / 22 substitutions]
+
+  Plus -DCDE_DATA_TOP= added to every Makefile.am that already passes
+  -DCDE_INSTALLATION_TOP= so the new C/C++ macro uses compile.
+
+Also folded in:
+
+  programs/types/dtmail.dt -> dtmail.dt.src    (rename + path subst)
+  programs/types/dtcm.dt   -> dtcm.dt.src      (rename + path subst)
+  programs/types/Makefile.am: add both to BUILT_SOURCES + tradcpp rules
+
+Default behavior is unchanged: with no --with-cde-* overrides,
+CDE_DATA_TOP defaults to ${prefix} which keeps the historical
+/usr/dt/{app-defaults,appconfig,...} layout.
+---
+diff --git a/doc/common/help/sdl-data.am b/doc/common/help/sdl-data.am
+index 74368c80..ac7e8403 100644
+--- a/doc/common/help/sdl-data.am
++++ b/doc/common/help/sdl-data.am
+@@ -3,11 +3,11 @@
+ 
+ 
+ # install the common graphics files
+-cmngraphdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/graphics
++cmngraphdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/graphics
+ dist_cmngraph_DATA = $(shell find common/graphics/*)
+ 
+ # install the common/*.hf files
+-hfdirdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)
++hfdirdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)
+ dist_hfdir_DATA = $(shell ls common/*.hf)
+ 
+ # Now, install any graphics assets found for each help section
+@@ -17,78 +17,78 @@ dist_hfdir_DATA = $(shell ls common/*.hf)
+ # restrain the urge to delete them all from the repo for now.
+ 
+ # Appmanager
+-appmanagerdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Appmanager/graphics
++appmanagerdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Appmanager/graphics
+ dist_appmanager_DATA = $(shell [ -d Appmanager/graphics ] && find Appmanager/graphics/* |grep -v /CDR)
+ 
+ # AppBuilder
+-appbuilderdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/AppBuilder/graphics
++appbuilderdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/AppBuilder/graphics
+ dist_appbuilder_DATA = $(shell [ -d AppBuilder/graphics ] && find AppBuilder/graphics/* |grep -v /CDR)
+ 
+ # Calculator
+-calculatordir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Calculator/graphics
++calculatordir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Calculator/graphics
+ dist_calculator_DATA = $(shell [ -d Calculator/graphics ] && find Calculator/graphics/* |grep -v /CDR)
+ 
+ # Calendar
+-calendardir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Calendar/graphics
++calendardir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Calendar/graphics
+ dist_calendar_DATA = $(shell [ -d Calendar/graphics ] && find Calendar/graphics/* |grep -v /CDR)
+ 
+ # CreatAct
+-creatactdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/CreatAct/graphics
++creatactdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/CreatAct/graphics
+ dist_creatact_DATA = $(shell [ -d CreatAct/graphics ] && find CreatAct/graphics/* |grep -v /CDR)
+ 
+ # Filemgr
+-filemgrdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Filemgr/graphics
++filemgrdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Filemgr/graphics
+ dist_filemgr_DATA = $(shell [ -d Filemgr/graphics ] && find Filemgr/graphics/* |grep -v /CDR)
+ 
+ # FPanel
+-fpaneldir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/FPanel/graphics
++fpaneldir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/FPanel/graphics
+ dist_fpanel_DATA = $(shell [ -d FPanel/graphics ] && find FPanel/graphics/* |grep -v /CDR)
+ 
+ # Help4Help
+-help4helpdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Help4Help/graphics
++help4helpdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Help4Help/graphics
+ dist_help4help_DATA = $(shell [ -d Help4Help/graphics ] && find Help4Help/graphics/* |grep -v /CDR)
+ 
+ # Iconed
+-iconeddir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Iconed/graphics
++iconeddir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Iconed/graphics
+ dist_iconed_DATA = $(shell [ -d Iconed/graphics ] && find Iconed/graphics/* |grep -v /CDR)
+ 
+ # Infomgr
+-infomgrdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Infomgr/graphics
++infomgrdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Infomgr/graphics
+ dist_infomgr_DATA = $(shell [ -d Infomgr/graphics ] && find Infomgr/graphics/* |grep -v /CDR)
+ 
+ # Intromgr
+-intromgrdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Intromgr/graphics
++intromgrdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Intromgr/graphics
+ dist_intromgr_DATA = $(shell [ -d Intromgr/graphics ] && find Intromgr/graphics/* |grep -v /CDR)
+ 
+ # LibDtPrint
+-libdtprintdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/LibDtPrint/graphics
++libdtprintdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/LibDtPrint/graphics
+ dist_libdtprint_DATA = $(shell [ -d LibDtPrint/graphics ] && find LibDtPrint/graphics/* |grep -v /CDR)
+ 
+ # Loginmgr
+-loginmgrdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Loginmgr/graphics
++loginmgrdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Loginmgr/graphics
+ dist_loginmgr_DATA = $(shell [ -d Loginmgr/graphics ] && find Loginmgr/graphics/* |grep -v /CDR)
+ 
+ # Mailer
+-mailerdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Mailer/graphics
++mailerdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Mailer/graphics
+ dist_mailer_DATA = $(shell [ -d Mailer/graphics ] && find Mailer/graphics/* |grep -v /CDR)
+ 
+ # Printmgr
+-printmgrdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Printmgr/graphics
++printmgrdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Printmgr/graphics
+ dist_printmgr_DATA = $(shell [ -d Printmgr/graphics ] && find Printmgr/graphics/* |grep -v /CDR)
+ 
+ # PrnSetup
+-prnsetupdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/PrnSetup/graphics
++prnsetupdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/PrnSetup/graphics
+ dist_prnsetup_DATA = $(shell [ -d PrnSetup/graphics ] && find PrnSetup/graphics/* |grep -v /CDR)
+ 
+ # Stylemgr
+-stylemgrdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Stylemgr/graphics
++stylemgrdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Stylemgr/graphics
+ dist_stylemgr_DATA = $(shell [ -d Stylemgr/graphics ] && find Stylemgr/graphics/* |grep -v /CDR)
+ 
+ # Terminal
+-terminaldir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Terminal/graphics
++terminaldir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Terminal/graphics
+ dist_terminal_DATA = $(shell [ -d Terminal/graphics ] && find Terminal/graphics/* |grep -v /CDR)
+ 
+ # Textedit
+-texteditdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)/Textedit/graphics
++texteditdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)/Textedit/graphics
+ dist_textedit_DATA = $(shell [ -d Textedit/graphics ] && find Textedit/graphics/* |grep -v /CDR)
+ 
+diff --git a/doc/common/help/sdl-docs.am b/doc/common/help/sdl-docs.am
+index f5aa875c..4fa2fbd8 100644
+--- a/doc/common/help/sdl-docs.am
++++ b/doc/common/help/sdl-docs.am
+@@ -9,7 +9,7 @@ BUILT_SOURCES = Appmanager.sdl $(APPBUILDER) Calculator.sdl		\
+ CLEANFILES = $(BUILT_SOURCES)
+ 
+ # install the help SDL files
+-sdlhelpdir = $(CDE_INSTALLATION_TOP)/appconfig/help/$(LANG)
++sdlhelpdir = $(CDE_DATA_TOP)/appconfig/help/$(LANG)
+ dist_sdlhelp_DATA = $(BUILT_SOURCES)
+ 
+ DTDOCBOOK = $(top_srcdir)/programs/dtdocbook/doc_utils/dtdocbook2sdl
+diff --git a/doc/de_DE.UTF-8/guides/Makefile.am b/doc/de_DE.UTF-8/guides/Makefile.am
+index ef36a31e..10d3c52f 100644
+--- a/doc/de_DE.UTF-8/guides/Makefile.am
++++ b/doc/de_DE.UTF-8/guides/Makefile.am
+@@ -31,7 +31,7 @@ CLEANFILES += $(INFOLIB)/$(BOOKCASE)/dtsearch/dtsearch.ocf
+ # ever change, but for now we will list them as they are currently
+ # installed.
+ 
+-cdedtidir = $(CDE_INSTALLATION_TOP)/infolib/$(LANG)/cde.dti
++cdedtidir = $(CDE_DATA_TOP)/infolib/$(LANG)/cde.dti
+ dist_cdedti_DATA = ../cde.dti/bookcase.map ../cde.dti/cde.oli
+ 
+ cdedtidocdir = $(cdedtidir)/CDEDOC
+diff --git a/doc/en_US.UTF-8/guides/Makefile.am b/doc/en_US.UTF-8/guides/Makefile.am
+index c07f3dd9..d9a7d552 100644
+--- a/doc/en_US.UTF-8/guides/Makefile.am
++++ b/doc/en_US.UTF-8/guides/Makefile.am
+@@ -43,7 +43,7 @@ CLEANFILES += $(INFOLIB)/$(BOOKCASE)/dtsearch/dtsearch.ocf
+ # ever change, but for now we will list them as they are currently
+ # installed.
+ 
+-cdedtidir = $(CDE_INSTALLATION_TOP)/infolib/$(LANG)/cde.dti
++cdedtidir = $(CDE_DATA_TOP)/infolib/$(LANG)/cde.dti
+ dist_cdedti_DATA = ../cde.dti/bookcase.map ../cde.dti/cde.oli
+ 
+ cdedtidocdir = $(cdedtidir)/CDEDOC
+@@ -73,5 +73,5 @@ CLEANFILES += $(cdedti_DATA) $(cdedtidoc_DATA) $(cdedtidocsearch_DATA)
+ 
+ # link the en_US.UTF-8 version to C
+ install-data-hook:
+-	$(RM) -rf $(DESTDIR)$(CDE_INSTALLATION_TOP)/infolib/C
+-	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/infolib && $(LN_S) en_US.UTF-8 C
++	$(RM) -rf $(DESTDIR)$(CDE_DATA_TOP)/infolib/C
++	cd $(DESTDIR)$(CDE_DATA_TOP)/infolib && $(LN_S) en_US.UTF-8 C
+diff --git a/doc/en_US.UTF-8/help/Makefile.am b/doc/en_US.UTF-8/help/Makefile.am
+index 898dc067..46d31d50 100644
+--- a/doc/en_US.UTF-8/help/Makefile.am
++++ b/doc/en_US.UTF-8/help/Makefile.am
+@@ -13,5 +13,5 @@ include $(top_srcdir)/doc/common/help/sdl-data.am
+ 
+ # need to setup a symlink for the C locale to point toward en_US
+ install-data-hook:
+-	$(RM) -rf $(DESTDIR)$(CDE_INSTALLATION_TOP)/appconfig/help/C
+-	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/appconfig/help/ && $(LN_S) en_US.UTF-8 C
++	$(RM) -rf $(DESTDIR)$(CDE_DATA_TOP)/appconfig/help/C
++	cd $(DESTDIR)$(CDE_DATA_TOP)/appconfig/help/ && $(LN_S) en_US.UTF-8 C
+diff --git a/doc/es_ES.UTF-8/guides/Makefile.am b/doc/es_ES.UTF-8/guides/Makefile.am
+index 3a3b8b48..0cf9f00e 100644
+--- a/doc/es_ES.UTF-8/guides/Makefile.am
++++ b/doc/es_ES.UTF-8/guides/Makefile.am
+@@ -31,7 +31,7 @@ CLEANFILES += $(INFOLIB)/$(BOOKCASE)/dtsearch/dtsearch.ocf
+ # ever change, but for now we will list them as they are currently
+ # installed.
+ 
+-cdedtidir = $(CDE_INSTALLATION_TOP)/infolib/$(LANG)/cde.dti
++cdedtidir = $(CDE_DATA_TOP)/infolib/$(LANG)/cde.dti
+ dist_cdedti_DATA = ../cde.dti/bookcase.map ../cde.dti/cde.oli
+ 
+ cdedtidocdir = $(cdedtidir)/CDEDOC
+diff --git a/doc/fr_FR.UTF-8/guides/Makefile.am b/doc/fr_FR.UTF-8/guides/Makefile.am
+index 71a83b9b..5bc20b88 100644
+--- a/doc/fr_FR.UTF-8/guides/Makefile.am
++++ b/doc/fr_FR.UTF-8/guides/Makefile.am
+@@ -31,7 +31,7 @@ CLEANFILES += $(INFOLIB)/$(BOOKCASE)/dtsearch/dtsearch.ocf
+ # ever change, but for now we will list them as they are currently
+ # installed.
+ 
+-cdedtidir = $(CDE_INSTALLATION_TOP)/infolib/$(LANG)/cde.dti
++cdedtidir = $(CDE_DATA_TOP)/infolib/$(LANG)/cde.dti
+ dist_cdedti_DATA = ../cde.dti/bookcase.map ../cde.dti/cde.oli
+ 
+ cdedtidocdir = $(cdedtidir)/CDEDOC
+diff --git a/doc/it_IT.UTF-8/guides/Makefile.am b/doc/it_IT.UTF-8/guides/Makefile.am
+index dcb876ed..6d245151 100644
+--- a/doc/it_IT.UTF-8/guides/Makefile.am
++++ b/doc/it_IT.UTF-8/guides/Makefile.am
+@@ -31,7 +31,7 @@ CLEANFILES += $(INFOLIB)/$(BOOKCASE)/dtsearch/dtsearch.ocf
+ # ever change, but for now we will list them as they are currently
+ # installed.
+ 
+-cdedtidir = $(CDE_INSTALLATION_TOP)/infolib/$(LANG)/cde.dti
++cdedtidir = $(CDE_DATA_TOP)/infolib/$(LANG)/cde.dti
+ dist_cdedti_DATA = ../cde.dti/bookcase.map ../cde.dti/cde.oli
+ 
+ cdedtidocdir = $(cdedtidir)/CDEDOC
+diff --git a/doc/ja_JP.UTF-8/guides/Makefile.am b/doc/ja_JP.UTF-8/guides/Makefile.am
+index cdd949b6..b9cde2d4 100644
+--- a/doc/ja_JP.UTF-8/guides/Makefile.am
++++ b/doc/ja_JP.UTF-8/guides/Makefile.am
+@@ -42,7 +42,7 @@ CLEANFILES += $(INFOLIB)/$(BOOKCASE)/dtsearch/dtsearch.ocf
+ # ever change, but for now we will list them as they are currently
+ # installed.
+ 
+-cdedtidir = $(CDE_INSTALLATION_TOP)/infolib/$(LANG)/cde.dti
++cdedtidir = $(CDE_DATA_TOP)/infolib/$(LANG)/cde.dti
+ dist_cdedti_DATA = ../cde.dti/bookcase.map ../cde.dti/cde.oli
+ 
+ cdedtidocdir = $(cdedtidir)/CDEDOC
+diff --git a/include/Dt/DtosP.h b/include/Dt/DtosP.h
+index 866da797..03daab1b 100644
+--- a/include/Dt/DtosP.h
++++ b/include/Dt/DtosP.h
+@@ -202,13 +202,13 @@ char *alloca();
+ 	CDE_CONFIGURATION_TOP "/appconfig/icons/C/%B" "%M.bm:"	\
+ 	CDE_CONFIGURATION_TOP "/appconfig/icons/C/%B:"		\
+ 								\
+-	CDE_INSTALLATION_TOP  "/appconfig/icons/%L/%B" "%M.pm:"	\
+-	CDE_INSTALLATION_TOP  "/appconfig/icons/%L/%B" "%M.bm:"	\
+-	CDE_INSTALLATION_TOP  "/appconfig/icons/%L/%B:"		\
++	CDE_DATA_TOP  "/appconfig/icons/%L/%B" "%M.pm:"	\
++	CDE_DATA_TOP  "/appconfig/icons/%L/%B" "%M.bm:"	\
++	CDE_DATA_TOP  "/appconfig/icons/%L/%B:"		\
+ 								\
+-	CDE_INSTALLATION_TOP  "/appconfig/icons/C/%B" "%M.pm:"	\
+-	CDE_INSTALLATION_TOP  "/appconfig/icons/C/%B" "%M.bm:"	\
+-	CDE_INSTALLATION_TOP  "/appconfig/icons/C/%B"
++	CDE_DATA_TOP  "/appconfig/icons/C/%B" "%M.pm:"	\
++	CDE_DATA_TOP  "/appconfig/icons/C/%B" "%M.bm:"	\
++	CDE_DATA_TOP  "/appconfig/icons/C/%B"
+ 
+ #define DTBMSYSDEFAULT						\
+         CDE_CONFIGURATION_TOP "/appconfig/icons/%L/%B" "%M.bm:"	\
+@@ -219,13 +219,13 @@ char *alloca();
+         CDE_CONFIGURATION_TOP "/appconfig/icons/C/%B" "%M.pm:"	\
+         CDE_CONFIGURATION_TOP "/appconfig/icons/C/%B:"		\
+ 								\
+-        CDE_INSTALLATION_TOP  "/appconfig/icons/%L/%B" "%M.bm:"	\
+-        CDE_INSTALLATION_TOP  "/appconfig/icons/%L/%B" "%M.pm:"	\
+-        CDE_INSTALLATION_TOP  "/appconfig/icons/%L/%B:"		\
++        CDE_DATA_TOP  "/appconfig/icons/%L/%B" "%M.bm:"	\
++        CDE_DATA_TOP  "/appconfig/icons/%L/%B" "%M.pm:"	\
++        CDE_DATA_TOP  "/appconfig/icons/%L/%B:"		\
+ 								\
+-        CDE_INSTALLATION_TOP  "/appconfig/icons/C/%B" "%M.bm:"	\
+-        CDE_INSTALLATION_TOP  "/appconfig/icons/C/%B" "%M.pm:"	\
+-        CDE_INSTALLATION_TOP  "/appconfig/icons/C/%B"
++        CDE_DATA_TOP  "/appconfig/icons/C/%B" "%M.bm:"	\
++        CDE_DATA_TOP  "/appconfig/icons/C/%B" "%M.pm:"	\
++        CDE_DATA_TOP  "/appconfig/icons/C/%B"
+ 
+ 
+ #ifdef __cplusplus
+diff --git a/include/Dt/EnvControlI.h b/include/Dt/EnvControlI.h
+index 34fca5e4..18400839 100644
+--- a/include/Dt/EnvControlI.h
++++ b/include/Dt/EnvControlI.h
+@@ -54,8 +54,8 @@
+ *******************************************************************/
+ #define BIN_PATH_STRING	 CDE_INSTALLATION_TOP "/bin"
+ 
+-#define NLS_PATH_STRING  CDE_INSTALLATION_TOP "/lib/nls/msg/%L/%N.cat:" \
+-                         CDE_INSTALLATION_TOP "/lib/nls/msg/C/%N.cat"
++#define NLS_PATH_STRING  CDE_DATA_TOP "/lib/nls/msg/%L/%N.cat:" \
++                         CDE_DATA_TOP "/lib/nls/msg/C/%N.cat"
+ 
+ #if defined(sun)
+ #define X_BIN_PATH_STRING "/usr/openwin/bin"
+@@ -94,8 +94,8 @@
+  */
+ #define SYSTEM_APPL_PATH_STRING  CDE_CONFIGURATION_TOP "/app-defaults/%L/%N:" \
+                                  CDE_CONFIGURATION_TOP "/app-defaults/C/%N:" \
+-                                 CDE_INSTALLATION_TOP "/app-defaults/%L/%N:" \
+-                                 CDE_INSTALLATION_TOP "/app-defaults/C/%N"
++                                 CDE_DATA_TOP "/app-defaults/%L/%N:" \
++                                 CDE_DATA_TOP "/app-defaults/C/%N"
+ 
+ 
+ /**********************************************************************
+diff --git a/include/Dt/HelpP.h b/include/Dt/HelpP.h
+index a9dd4d8b..9e96f662 100644
+--- a/include/Dt/HelpP.h
++++ b/include/Dt/HelpP.h
+@@ -83,12 +83,12 @@
+                  CDE_CONFIGURATION_TOP "/appconfig/help/C/%H:" \
+                  CDE_CONFIGURATION_TOP "/appconfig/help/C/%H.sdl:" \
+                  CDE_CONFIGURATION_TOP "/appconfig/help/C/%H.hv:" \
+-                 CDE_INSTALLATION_TOP "/appconfig/help/%L/%H:" \
+-                 CDE_INSTALLATION_TOP "/appconfig/help/%L/%H.sdl:" \
+-                 CDE_INSTALLATION_TOP "/appconfig/help/%L/%H.hv" \
+-                 CDE_INSTALLATION_TOP "/appconfig/help/C/%H:" \
+-                 CDE_INSTALLATION_TOP "/appconfig/help/C/%H.sdl:" \
+-                 CDE_INSTALLATION_TOP "/appconfig/help/C/%H.hv:"
++                 CDE_DATA_TOP "/appconfig/help/%L/%H:" \
++                 CDE_DATA_TOP "/appconfig/help/%L/%H.sdl:" \
++                 CDE_DATA_TOP "/appconfig/help/%L/%H.hv" \
++                 CDE_DATA_TOP "/appconfig/help/C/%H:" \
++                 CDE_DATA_TOP "/appconfig/help/C/%H.sdl:" \
++                 CDE_DATA_TOP "/appconfig/help/C/%H.hv:"
+ 
+ 
+ #define DtDEFAULT_USER_PATH_FORMAT \
+diff --git a/lib/DtHelp/Makefile.am b/lib/DtHelp/Makefile.am
+index 04730f09..ed86f66b 100644
+--- a/lib/DtHelp/Makefile.am
++++ b/lib/DtHelp/Makefile.am
+@@ -10,6 +10,7 @@ lib_LTLIBRARIES = libDtHelp.la
+ 
+ libDtHelp_la_CFLAGS = -I./il -I./jpeg -I../DtSvc/DtUtil2 -DDTLIB \
+ 		      -DCDE_INSTALLATION_TOP='"$(CDE_INSTALLATION_TOP)"' \
++		      -DCDE_DATA_TOP='"$(CDE_DATA_TOP)"' \
+ 		      -DCDE_CONFIGURATION_TOP='"$(CDE_CONFIGURATION_TOP)"' \
+ 		      @DT_INCDIR@ @DTI_INCDIR@
+ 
+diff --git a/lib/DtHelp/il/Makefile.am b/lib/DtHelp/il/Makefile.am
+index f7aabd67..ab8633ce 100644
+--- a/lib/DtHelp/il/Makefile.am
++++ b/lib/DtHelp/il/Makefile.am
+@@ -3,6 +3,7 @@ MAINTAINERCLEANFILES = Makefile.in
+ noinst_LTLIBRARIES = libil.la
+ 
+ libil_la_CFLAGS = -I.. -DDTLIB -DCDE_INSTALLATION_TOP='"$(CDE_INSTALLATION_TOP)"' \
++-DCDE_DATA_TOP='"$(CDE_DATA_TOP)"' \
+ 		  -DCDE_CONFIGURATION_TOP='"$(CDE_CONFIGURATION_TOP)"' \
+ 		  @DT_INCDIR@ @DTI_INCDIR@
+ 
+diff --git a/lib/DtSearch/raima/Makefile.am b/lib/DtSearch/raima/Makefile.am
+index 7213ee16..9797b742 100644
+--- a/lib/DtSearch/raima/Makefile.am
++++ b/lib/DtSearch/raima/Makefile.am
+@@ -3,6 +3,7 @@ MAINTAINERCLEANFILES = Makefile.in
+ noinst_LTLIBRARIES = libraima.la
+ 
+ libraima_la_CFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 		     $(DT_INCDIR) -I$(top_srcdir)/include \
+ 		     -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+ 		     -DNO_TRANS -DUNIX -D_POSIX_SOURCE -DMULTIBYTE
+diff --git a/lib/DtSvc/DtUtil1/DbUtil.c b/lib/DtSvc/DtUtil1/DbUtil.c
+index 7e05bf38..6d9e3dca 100644
+--- a/lib/DtSvc/DtUtil1/DbUtil.c
++++ b/lib/DtSvc/DtUtil1/DbUtil.c
+@@ -102,8 +102,8 @@ static char DTDATABASESEARCHPATH_DEFAULT[] =
+   "%s/.dt/types,"
+   CDE_CONFIGURATION_TOP "/appconfig/types/%%L,"
+   CDE_CONFIGURATION_TOP "/appconfig/types,"
+-  CDE_INSTALLATION_TOP "/appconfig/types/%%L,"
+-  CDE_INSTALLATION_TOP "/appconfig/types";
++  CDE_DATA_TOP "/appconfig/types/%%L,"
++  CDE_DATA_TOP "/appconfig/types";
+ 
+ 
+ /****   Substitution records used by XtFindFile() in _DtExpandLang()   ****/
+diff --git a/lib/DtSvc/Makefile.am b/lib/DtSvc/Makefile.am
+index f603a781..2d18dd61 100644
+--- a/lib/DtSvc/Makefile.am
++++ b/lib/DtSvc/Makefile.am
+@@ -13,6 +13,7 @@ endif
+ # USe CPPFLAGS so it will apply to both C and C++ components
+ libDtSvc_la_CPPFLAGS = -I./include -DMULTIBYTE -DNLS16 -I../include \
+ 	@DT_INCDIR@ -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++	-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+        -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\"
+ 
+ if SOLARIS
+diff --git a/lib/DtWidget/Makefile.am b/lib/DtWidget/Makefile.am
+index ca9eda4b..c48f001e 100644
+--- a/lib/DtWidget/Makefile.am
++++ b/lib/DtWidget/Makefile.am
+@@ -1,10 +1,11 @@
+-unixdir = $(CDE_INSTALLATION_TOP)/app-defaults/C
++unixdir = $(CDE_DATA_TOP)/app-defaults/C
+ 
+ MAINTAINERCLEANFILES = Makefile.in
+ 
+ lib_LTLIBRARIES = libDtWidget.la
+ 
+-AM_CPPFLAGS = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) $(DT_INCDIR)
++AM_CPPFLAGS = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) $(DT_INCDIR) \
++-DCDE_DATA_TOP=$(CDE_DATA_TOP)
+ 
+ libDtWidget_la_CFLAGS = -DI18N_MSG -DMULTIBYTE
+ 
+diff --git a/lib/tt/slib/Makefile.am b/lib/tt/slib/Makefile.am
+index ca3b7500..dc81c687 100644
+--- a/lib/tt/slib/Makefile.am
++++ b/lib/tt/slib/Makefile.am
+@@ -4,6 +4,7 @@ noinst_LIBRARIES = libstt.a
+ 
+ libstt_a_CXXFLAGS = $(TIRPC_DEFINES) -I../lib \
+     -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+     -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+     -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/lib/tt/slib/mp_typedb.C b/lib/tt/slib/mp_typedb.C
+index 59701e47..3e5b50f9 100644
+--- a/lib/tt/slib/mp_typedb.C
++++ b/lib/tt/slib/mp_typedb.C
+@@ -242,7 +242,7 @@ _Tt_typedb::tt_path()
+ 		pathlist->append(home.cat("/.tt/types.xdr"));
+ 		pathlist->append(_Tt_string("/etc/tt/types.xdr"));
+ 		pathlist->append(
+-			_Tt_string(CDE_INSTALLATION_TOP "/appconfig/tttypes/types.xdr"));
++			_Tt_string(CDE_DATA_TOP "/appconfig/tttypes/types.xdr"));
+ 		home = getenv("OPENWINHOME");
+ 		if (home.len() == 0) {
+ 			home = "/usr/openwin";
+diff --git a/programs/backdrops/Makefile.am b/programs/backdrops/Makefile.am
+index c54eafd5..28b7b0af 100644
+--- a/programs/backdrops/Makefile.am
++++ b/programs/backdrops/Makefile.am
+@@ -1,4 +1,4 @@
+-backdropdir = $(CDE_INSTALLATION_TOP)/share/backdrops
++backdropdir = $(CDE_DATA_TOP)/share/backdrops
+ 
+ dist_backdrop_DATA = Ankh.bm Crochet.pm Lattice.pm Paver.pm	\
+ SkyLight.pm Background.bm Foreground.bm Leaves.pm Pebbles.pm	\
+@@ -8,6 +8,6 @@ Convex.pm KnitLight.pm NoBackdrop.pm RicePaper.pm WaterDrops.pm	\
+ Corduroy.pm LatticeBig.pm OldChars.pm SkyDark.pm Wooly.pm
+ 
+ install-data-hook:
+-	$(RM) $(DESTDIR)$(CDE_INSTALLATION_TOP)/backdrops
++	$(RM) $(DESTDIR)$(CDE_DATA_TOP)/backdrops
+ 	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/ && $(LN_S) share/backdrops backdrops
+ 
+diff --git a/programs/dtappbuilder/src/ab/Makefile.am b/programs/dtappbuilder/src/ab/Makefile.am
+index 064a7d4d..dfe10b65 100644
+--- a/programs/dtappbuilder/src/ab/Makefile.am
++++ b/programs/dtappbuilder/src/ab/Makefile.am
+@@ -2,11 +2,12 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ .NOTPARALLEL:
+ 
+-appdefaultsdir = $(CDE_INSTALLATION_TOP)/app-defaults/C
++appdefaultsdir = $(CDE_DATA_TOP)/app-defaults/C
+ 
+ ABINCLUDES = -I../include -I../include/ab_private -I../libABil
+ 
+ AM_CPPFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+               -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+               -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dtappintegrate/Makefile.am b/programs/dtappintegrate/Makefile.am
+index 0947e142..6f621d40 100644
+--- a/programs/dtappintegrate/Makefile.am
++++ b/programs/dtappintegrate/Makefile.am
+@@ -6,6 +6,7 @@ CLEANFILES = $(bin_SCRIPTS)
+ 
+ LOCAL_CPP_DEFINES = -DKORNSHELL=$(KSH)			\
+ 	-DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP)	\
++	-DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+ 	-DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP)
+ 
+ dtappintegrate: dtappintegrate.src
+diff --git a/programs/dtcalc/Makefile.am b/programs/dtcalc/Makefile.am
+index c9bc32d1..76028377 100644
+--- a/programs/dtcalc/Makefile.am
++++ b/programs/dtcalc/Makefile.am
+@@ -2,7 +2,8 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ bin_PROGRAMS = dtcalc
+ 
+-dtcalc_CPPFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\"
++dtcalc_CPPFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\"
+ 
+ dtcalc_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+ 
+diff --git a/programs/dtcalc/motif.h b/programs/dtcalc/motif.h
+index d8cb40af..4f27aa5e 100644
+--- a/programs/dtcalc/motif.h
++++ b/programs/dtcalc/motif.h
+@@ -94,8 +94,8 @@ extern Boolean ignore_event;
+ #ifndef CDE_INSTALLATION_TOP
+ #define CDE_INSTALLATION_TOP "/usr/dt"
+ #endif
+-#define CALC_ICON_NAME     CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtcalc.l.pm"
+-#define CALC_ICON_NAME_BM  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtcalc.l.bm"
++#define CALC_ICON_NAME     CDE_DATA_TOP "/appconfig/icons/C/Dtcalc.l.pm"
++#define CALC_ICON_NAME_BM  CDE_DATA_TOP "/appconfig/icons/C/Dtcalc.l.bm"
+ 
+ #define HELP_HELP_MENU                  710
+ 
+diff --git a/programs/dtconfig/sun/Makefile.am b/programs/dtconfig/sun/Makefile.am
+index 805e1ade..653e97e5 100644
+--- a/programs/dtconfig/sun/Makefile.am
++++ b/programs/dtconfig/sun/Makefile.am
+@@ -6,6 +6,7 @@ configdir = $(CDE_INSTALLATION_TOP)/config
+ dist_config_DATA = dtlogin.rc dtlogin.xml
+ 
+ SCRIPTFLAGS = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++-DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+               -DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP)
+ 
+ BUILT_SOURCES = dtconfig dtlogin.rc
+diff --git a/programs/dtcreate/Makefile.am b/programs/dtcreate/Makefile.am
+index 4096e5f9..8bcefe81 100644
+--- a/programs/dtcreate/Makefile.am
++++ b/programs/dtcreate/Makefile.am
+@@ -3,6 +3,7 @@ MAINTAINERCLEANFILES = Makefile.in
+ bin_PROGRAMS = dtcreate
+ 
+ AM_CPPFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+               -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+               -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dtcreate/cmnrtns.c b/programs/dtcreate/cmnrtns.c
+index d4f3aeab..2b0389e8 100644
+--- a/programs/dtcreate/cmnrtns.c
++++ b/programs/dtcreate/cmnrtns.c
+@@ -356,8 +356,8 @@ char **GetIconSearchPathList(void)
+   char    **pplist;
+   char    *lang;
+   int     langsize;
+-  static  char *default_list1[] = {"~/.dt/icons", CDE_CONFIGURATION_TOP "/appconfig/icons/C", CDE_INSTALLATION_TOP "/appconfig/icons/C"};
+-  static  char *default_list2[] = {CDE_CONFIGURATION_TOP "/appconfig/icons/C", CDE_INSTALLATION_TOP "/appconfig/icons/C"};
++  static  char *default_list1[] = {"~/.dt/icons", CDE_CONFIGURATION_TOP "/appconfig/icons/C", CDE_DATA_TOP "/appconfig/icons/C"};
++  static  char *default_list2[] = {CDE_CONFIGURATION_TOP "/appconfig/icons/C", CDE_DATA_TOP "/appconfig/icons/C"};
+   char    **default_list;
+   Boolean bFound;
+   char    *pszEnvVar;
+diff --git a/programs/dtcreate/icon_selection_dialog.c b/programs/dtcreate/icon_selection_dialog.c
+index ae8867e1..51f17231 100644
+--- a/programs/dtcreate/icon_selection_dialog.c
++++ b/programs/dtcreate/icon_selection_dialog.c
+@@ -713,7 +713,7 @@ void  update_container_contents (char *filter)
+   /******************************************************************/
+   n = 0;
+   /*
+-  XtSetArg(args[n], XmNimageName, CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.m.pm"); n++;
++  XtSetArg(args[n], XmNimageName, CDE_DATA_TOP "/appconfig/icons/C/Dtactn.m.pm"); n++;
+   */
+   XtSetArg(args[n], XmNimageName, NULL); n++;
+   XtSetArg(args[n], XmNfillMode, XmFILL_SELF); n++;
+diff --git a/programs/dtcreate/main.c b/programs/dtcreate/main.c
+index 829cc934..c6d2fe97 100644
+--- a/programs/dtcreate/main.c
++++ b/programs/dtcreate/main.c
+@@ -205,18 +205,18 @@ Widget  last_action_pushed = (Widget)NULL;
+ Widget  last_filetype_pushed = (Widget)NULL;
+ 
+ const char *ca_icon_default = "Dtactn";
+-const char *ca_full_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn";
+-const char *ca_lrg_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.l";
+-const char *ca_med_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.m";
+-const char *ca_sml_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.s";
+-const char *ca_tiny_icon_default = CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtactn.t";
++const char *ca_full_icon_default =  CDE_DATA_TOP "/appconfig/icons/C/Dtactn";
++const char *ca_lrg_icon_default =  CDE_DATA_TOP "/appconfig/icons/C/Dtactn.l";
++const char *ca_med_icon_default =  CDE_DATA_TOP "/appconfig/icons/C/Dtactn.m";
++const char *ca_sml_icon_default =  CDE_DATA_TOP "/appconfig/icons/C/Dtactn.s";
++const char *ca_tiny_icon_default = CDE_DATA_TOP "/appconfig/icons/C/Dtactn.t";
+ 
+ const char *af_icon_default = "Dtdata";
+-const char *af_full_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata";
+-const char *af_lrg_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata.l";
+-const char *af_med_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata.m";
+-const char *af_sml_icon_default =  CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata.s";
+-const char *af_tiny_icon_default = CDE_INSTALLATION_TOP "/appconfig/icons/C/Dtdata.t";
++const char *af_full_icon_default =  CDE_DATA_TOP "/appconfig/icons/C/Dtdata";
++const char *af_lrg_icon_default =  CDE_DATA_TOP "/appconfig/icons/C/Dtdata.l";
++const char *af_med_icon_default =  CDE_DATA_TOP "/appconfig/icons/C/Dtdata.m";
++const char *af_sml_icon_default =  CDE_DATA_TOP "/appconfig/icons/C/Dtdata.s";
++const char *af_tiny_icon_default = CDE_DATA_TOP "/appconfig/icons/C/Dtdata.t";
+ 
+ 
+ 
+diff --git a/programs/dtfile/Main.h b/programs/dtfile/Main.h
+index dd776cb5..17e5ed5e 100644
+--- a/programs/dtfile/Main.h
++++ b/programs/dtfile/Main.h
+@@ -154,11 +154,11 @@
+ #define CHANGE_VIEW_ICON_S      "change_view.s"
+ #define CHANGE_VIEW_ICON_M      "change_view.m"
+ #define MULTIPLE_FILE_DRAG      "drag.bm"
+-#define SMALL_DIRECTORY_ICON    CDE_INSTALLATION_TOP "/appconfig/icons/C/dirblue.t.pm"
++#define SMALL_DIRECTORY_ICON    CDE_DATA_TOP "/appconfig/icons/C/dirblue.t.pm"
+ 
+-#define TOOL_ICON_NAME     CDE_INSTALLATION_TOP "/appconfig/icons/C/Fpapps.l.pm"
+-#define TRASH_ICON_NAME    CDE_INSTALLATION_TOP "/appconfig/icons/C/Fptrsh.l.pm"
+-#define HOME_ICON_NAME     CDE_INSTALLATION_TOP "/appconfig/icons/C/Fphome.l.pm"
++#define TOOL_ICON_NAME     CDE_DATA_TOP "/appconfig/icons/C/Fpapps.l.pm"
++#define TRASH_ICON_NAME    CDE_DATA_TOP "/appconfig/icons/C/Fptrsh.l.pm"
++#define HOME_ICON_NAME     CDE_DATA_TOP "/appconfig/icons/C/Fphome.l.pm"
+ 
+ 
+ /* File manipulation types */
+diff --git a/programs/dtfile/Makefile.am b/programs/dtfile/Makefile.am
+index 8956cc45..fc72f6ae 100644
+--- a/programs/dtfile/Makefile.am
++++ b/programs/dtfile/Makefile.am
+@@ -13,6 +13,7 @@ dist_bin_SCRIPTS = dtfile_error dterror.ds
+ 
+ dtfile_CPPFLAGS = -I./dtcopy -DSHAPE -D_ILS_MACROS -DSUN_PERF \
+ 		-DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++		-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 		-DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\"
+ 
+ dtfile_LDADD = dtcopy/sharedFuncs.o \
+@@ -44,6 +45,7 @@ dtfile_SOURCES = ChangeDir.c     ChangeDirP.c    Command.c       Common.c \
+ # Mind the quoting here...
+ SCRIPTFLAGS = -DSHAPE -D_ILS_MACROS -DSUN_PERF \
+ 	-DCDE_INSTALLATION_TOP="$(CDE_INSTALLATION_TOP)" \
++	-DCDE_DATA_TOP="$(CDE_DATA_TOP)" \
+ 	-DCDE_CONFIGURATION_TOP="$(CDE_CONFIGURATION_TOP)"
+ 
+ dtfile.config: dtfile.config.cpp
+diff --git a/programs/dtfile/dterror.src b/programs/dtfile/dterror.src
+index 5d1c9690..a3b65a21 100755
+--- a/programs/dtfile/dterror.src
++++ b/programs/dtfile/dterror.src
+@@ -32,7 +32,7 @@ XCOMM ------
+ 
+ MESSAGE="$@"
+ #ifdef _AIX
+-MSGCAT=CDE_INSTALLATION_TOP/lib/nls/msg/$LANG/dtfile.cat
++MSGCAT=CDE_DATA_TOP/lib/nls/msg/$LANG/dtfile.cat
+ TITLE=`dspmsg $MSGCAT -s 32 1 "dt Error"`
+ #else
+ TITLE="dt Error"
+diff --git a/programs/dthelp/dthelpdemo/Makefile.am b/programs/dthelp/dthelpdemo/Makefile.am
+index 379300cf..05488fac 100644
+--- a/programs/dthelp/dthelpdemo/Makefile.am
++++ b/programs/dthelp/dthelpdemo/Makefile.am
+@@ -3,6 +3,7 @@ MAINTAINERCLEANFILES = Makefile.in
+ bin_PROGRAMS = dthelpdemo
+ 
+ dthelpdemo_CPPFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 		   -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\"
+ 
+ dthelpdemo_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+diff --git a/programs/dthelp/dthelpgen/Makefile.am b/programs/dthelp/dthelpgen/Makefile.am
+index 54894875..ad0489de 100644
+--- a/programs/dthelp/dthelpgen/Makefile.am
++++ b/programs/dthelp/dthelpgen/Makefile.am
+@@ -5,6 +5,7 @@ bin_PROGRAMS = dthelpgen
+ bin_SCRIPTS = dthelpgen.dtsh
+ 
+ dthelpgen_CPPFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 		   -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+ 		   -I ../../../lib/DtHelp
+ 
+diff --git a/programs/dthelp/dthelpprint/Initialize.c b/programs/dthelp/dthelpprint/Initialize.c
+index 470351e7..d6b2f9e6 100644
+--- a/programs/dthelp/dthelpprint/Initialize.c
++++ b/programs/dthelp/dthelpprint/Initialize.c
+@@ -58,7 +58,7 @@ $COPYRIGHT$:
+ /*#define DEBUG	*/
+ 
+ /*=========== file/dir constants ===========*/
+-#define DTAPPDEFAULTS_DIR	CDE_INSTALLATION_TOP "/app-defaults/C/"
++#define DTAPPDEFAULTS_DIR	CDE_DATA_TOP "/app-defaults/C/"
+ #define XAPPDEFAULTS_DIR	"/usr/lib/X11/app-defaults/"
+ #define XDEFAULTS_FILE		"/.Xdefaults"
+ #define XDEFAULTS_HOST_FILE	"/.Xdefaults-"
+diff --git a/programs/dthelp/dthelpprint/Makefile.am b/programs/dthelp/dthelpprint/Makefile.am
+index 81eda923..409d74d0 100644
+--- a/programs/dthelp/dthelpprint/Makefile.am
++++ b/programs/dthelp/dthelpprint/Makefile.am
+@@ -5,7 +5,8 @@ bin_SCRIPTS =  dthelpprint.sh
+ 
+ dthelpprint_CPPFLAGS = -I.. -I ../../../lib/DtHelp \
+ 	-DCDE_CONFIGURATION_TOP='"${prefix}"' \
+-	-DCDE_INSTALLATION_TOP='"$(CDE_INSTALLATION_TOP)"'
++	-DCDE_INSTALLATION_TOP='"$(CDE_INSTALLATION_TOP)"' \
++	-DCDE_DATA_TOP='"$(CDE_DATA_TOP)"'
+ 
+ dthelpprint_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+ 
+diff --git a/programs/dthelp/parser/canon1/helptag/Makefile.am b/programs/dthelp/parser/canon1/helptag/Makefile.am
+index 01df2143..5524b92d 100644
+--- a/programs/dthelp/parser/canon1/helptag/Makefile.am
++++ b/programs/dthelp/parser/canon1/helptag/Makefile.am
+@@ -27,6 +27,7 @@ AM_CPPFLAGS = -DCANON1 -I../parser -I../eltdef -I../../include/parser -I../../in
+ 	      -I../../include/eltdef -I../../include/helptag \
+ 	      $(DT_INCDIR) \
+ 	      -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++	      -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 	      -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+ 	      -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dthelp/parser/pass1/helptag/Makefile.am b/programs/dthelp/parser/pass1/helptag/Makefile.am
+index 4f2a9e33..c6f3d897 100644
+--- a/programs/dthelp/parser/pass1/helptag/Makefile.am
++++ b/programs/dthelp/parser/pass1/helptag/Makefile.am
+@@ -27,6 +27,7 @@ AM_CPPFLAGS = -DPASS1 -I../parser -I../eltdef -I../../include/parser -I../../inc
+ 	      -I../../include/eltdef -I../../include/helptag \
+ 	      $(DT_INCDIR) \
+ 	      -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++	      -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 	      -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+ 	      -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dtimsstart/Makefile.am b/programs/dtimsstart/Makefile.am
+index c1f59418..87742a4e 100644
+--- a/programs/dtimsstart/Makefile.am
++++ b/programs/dtimsstart/Makefile.am
+@@ -8,6 +8,7 @@ dist_xsession_SCRIPTS = 0020.dtims
+ 
+ dtimsstart_CFLAGS = -DNLS \
+     -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+     -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+     -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+@@ -27,6 +28,7 @@ imsdir = $(CDE_INSTALLATION_TOP)/config/ims
+ dist_ims_DATA = conf/start.conf
+ 
+ LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++-DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+                     -DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP) \
+ 		    -DKORNSHELL=$(KSH)
+ 
+diff --git a/programs/dtimsstart/ximspath.h b/programs/dtimsstart/ximspath.h
+index 14417de8..c5a8e566 100644
+--- a/programs/dtimsstart/ximspath.h
++++ b/programs/dtimsstart/ximspath.h
+@@ -47,14 +47,14 @@
+ #define	ENV_NO_DTIMSSTART	"NODTIMSSTART"
+ #define	ENV_XFILESEARCHPATH	"XFILESEARCHPATH"
+ #define	ENV_XFILESEARCHPATH_STRING \
+-	CDE_CONFIGURATION_TOP "/app-defaults/%L/%N:" CDE_CONFIGURATION_TOP "/app-defaults/C/%N:" CDE_INSTALLATION_TOP "/app-defaults/%L/%N:" CDE_INSTALLATION_TOP "/app-defaults/C/%N"
++	CDE_CONFIGURATION_TOP "/app-defaults/%L/%N:" CDE_CONFIGURATION_TOP "/app-defaults/C/%N:" CDE_DATA_TOP "/app-defaults/%L/%N:" CDE_DATA_TOP "/app-defaults/C/%N"
+ #define	ENV_NLSPATH		"NLSPATH"
+ #define	ENV_NLSPATH_STRING \
+-	CDE_INSTALLATION_TOP "/lib/nls/msg/%L/%N.cat:" CDE_INSTALLATION_TOP "/lib/nls/msg/C/%N.cat"
++	CDE_DATA_TOP "/lib/nls/msg/%L/%N.cat:" CDE_DATA_TOP "/lib/nls/msg/C/%N.cat"
+ 
+ 	/* configuration */
+ #define	DTIMS_CONFDIR		CDE_INSTALLATION_TOP "/config/ims"
+-#define	DTIMS_APPDIR		CDE_INSTALLATION_TOP "/app-defaults"
++#define	DTIMS_APPDIR		CDE_DATA_TOP "/app-defaults"
+ #define	DTIMS_CONFFILE		"start.conf"
+ 
+ 	/* path of executable (used for remote execution) */
+diff --git a/programs/dtinfo/clients/dtinfo_start/Makefile.am b/programs/dtinfo/clients/dtinfo_start/Makefile.am
+index 9ad8f012..8038476f 100644
+--- a/programs/dtinfo/clients/dtinfo_start/Makefile.am
++++ b/programs/dtinfo/clients/dtinfo_start/Makefile.am
+@@ -1,6 +1,6 @@
+ MAINTAINERCLEANFILES = Makefile.in
+ 
+-startinstdir = $(CDE_INSTALLATION_TOP)/infolib/etc
++startinstdir = $(CDE_DATA_TOP)/infolib/etc
+ startinst_PROGRAMS = dtinfo_start
+ 
+ BUILT_SOURCES = dtinfo_start.opnums
+diff --git a/programs/dtinfo/dtinfo/install/lib/Makefile.am b/programs/dtinfo/dtinfo/install/lib/Makefile.am
+index ac6c6650..60b31d9e 100644
+--- a/programs/dtinfo/dtinfo/install/lib/Makefile.am
++++ b/programs/dtinfo/dtinfo/install/lib/Makefile.am
+@@ -4,5 +4,5 @@ etcdir = $(CDE_CONFIGURATION_TOP)
+ 
+ SUBDIRS = bitmaps
+ 
+-infolibdir = $(CDE_INSTALLATION_TOP)/infolib/etc
++infolibdir = $(CDE_DATA_TOP)/infolib/etc
+ dist_infolib_DATA = mmdb.mark.spec
+diff --git a/programs/dtinfo/dtinfo/install/lib/bitmaps/Makefile.am b/programs/dtinfo/dtinfo/install/lib/bitmaps/Makefile.am
+index 82536440..f378c3b4 100644
+--- a/programs/dtinfo/dtinfo/install/lib/bitmaps/Makefile.am
++++ b/programs/dtinfo/dtinfo/install/lib/bitmaps/Makefile.am
+@@ -9,9 +9,9 @@ FILES= bomb bomb16 bomb16m bomb32 bomb32m bombm browse.xbm		\
+ 
+ # The last dir level for install is for language, default C
+ 
+-cdir =  $(CDE_INSTALLATION_TOP)/appconfig/icons/C
++cdir =  $(CDE_DATA_TOP)/appconfig/icons/C
+ c_DATA = $(FILES)
+ 
+ 
+-jadir =  $(CDE_INSTALLATION_TOP)/appconfig/icons/ja
++jadir =  $(CDE_DATA_TOP)/appconfig/icons/ja
+ ja_DATA = $(FILES)
+diff --git a/programs/dtinfo/dtinfo/src/Agents/AddLibraryAgentMotif.C b/programs/dtinfo/dtinfo/src/Agents/AddLibraryAgentMotif.C
+index 48874d6a..148b5f2b 100644
+--- a/programs/dtinfo/dtinfo/src/Agents/AddLibraryAgentMotif.C
++++ b/programs/dtinfo/dtinfo/src/Agents/AddLibraryAgentMotif.C
+@@ -227,9 +227,9 @@ AddLibraryAgent::pick_dir () {
+ //       user environment LANG is OK ...
+     char *tmpstr;
+     if( (tmpstr = getenv("LANG")) )
+-	snprintf( buf, buflen, CDE_INSTALLATION_TOP "/infolib/%s/", tmpstr );
++	snprintf( buf, buflen, CDE_DATA_TOP "/infolib/%s/", tmpstr );
+     else
+-	snprintf( buf, buflen, CDE_INSTALLATION_TOP "/infolib/%s/", env().lang() );
++	snprintf( buf, buflen, CDE_DATA_TOP "/infolib/%s/", env().lang() );
+ //
+     XmString basedir_str = XmStringCreateLocalized( buf );
+     slen = strlen(buf);
+diff --git a/programs/dtinfo/dtinfo/src/Managers/EnvMgr.C b/programs/dtinfo/dtinfo/src/Managers/EnvMgr.C
+index 1f4fd495..011fcfc2 100644
+--- a/programs/dtinfo/dtinfo/src/Managers/EnvMgr.C
++++ b/programs/dtinfo/dtinfo/src/Managers/EnvMgr.C
+@@ -201,7 +201,7 @@ EnvMgr::init(int argc_i, char** argv_i)
+     {
+        static char markref[256];
+        snprintf (markref, sizeof(markref), "DTINFO_MARKSPECPATH=%s",
+-					CDE_INSTALLATION_TOP "/infolib/etc" );
++					CDE_DATA_TOP "/infolib/etc" );
+        putenv (markref);
+     }
+   }
+diff --git a/programs/dtinfo/dtinfo_env.mk b/programs/dtinfo/dtinfo_env.mk
+index e81b568a..a2c33b10 100644
+--- a/programs/dtinfo/dtinfo_env.mk
++++ b/programs/dtinfo/dtinfo_env.mk
+@@ -6,6 +6,7 @@ DTINFO_DEFINES = -DDtinfoClient -DUseWideChars -DInternationalize	\
+ -DUseMotifXpm -DUseTooltalk -DUseSessionMgmt -DDTSEARCH -DCDE_NEXT	\
+ -DEXPAND_TEMPLATES \
+ -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+ -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dtksh/examples/Makefile.am b/programs/dtksh/examples/Makefile.am
+index d9a27577..768484d7 100644
+--- a/programs/dtksh/examples/Makefile.am
++++ b/programs/dtksh/examples/Makefile.am
+@@ -5,7 +5,8 @@ noinst_SCRIPTS = CallbackTest2 CallDataTest4 crMovesText1 DtCursorTest2 \
+ 		 SelBoxResTest SessionTest TextCutBuf1 TextDisp1 TextFXYPos1 \
+ 		 TransEventTest TransTest1 WorkProcTest1 XdrawTest
+ 
+-LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP)
++LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++-DCDE_DATA_TOP=$(CDE_DATA_TOP)
+ 
+ BUILT_SOURCES =  CallbackTest2 CallDataTest4 crMovesText1 DtCursorTest2 \
+                  DtWsTest1 EventHandlerTest ListBounds1 ListItemPos1 PopupTest \
+diff --git a/programs/dtksh/examples/SessionTest.src b/programs/dtksh/examples/SessionTest.src
+index a3d6cf71..275fb971 100644
+--- a/programs/dtksh/examples/SessionTest.src
++++ b/programs/dtksh/examples/SessionTest.src
+@@ -54,7 +54,7 @@ XCOMM      Save the list of workspace we occupy
+ 
+ XCOMM      Tell the session manager how to restart us
+       DtSetStartupCommand $TOPLEVEL \
+-		   "CDE_INSTALLATION_TOP/share/examples/dtksh/SessionTest $SAVEFILE"
++		   "CDE_DATA_TOP/share/examples/dtksh/SessionTest $SAVEFILE"
+    else
+       echo "DtSessionSavePath FAILED!!"
+       exit -3
+diff --git a/programs/dtlogin/Makefile.am b/programs/dtlogin/Makefile.am
+index b6f9ae58..a4773fbd 100644
+--- a/programs/dtlogin/Makefile.am
++++ b/programs/dtlogin/Makefile.am
+@@ -8,11 +8,12 @@ DEF_SERVER = $(XBINDIR)/X
+ DEF_USER_PATH = $(PATH):$(XBINDIR)
+ DEF_SYSTEM_PATH = $(PATH):$(XBINDIR)
+ 
+-DEF_BM_PATH = $(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B%M.bm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B%M.pm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B%M.bm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B%M.pm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B:$(CDE_INSTALLATION_TOP)/appconfig/icons/%L/%B%M.bm:$(CDE_INSTALLATION_TOP)/appconfig/icons/%L/%B%M.pm:$(CDE_INSTALLATION_TOP)/appconfig/icons/%L/%B:$(CDE_INSTALLATION_TOP)/appconfig/icons/C/%B%M.bm:$(CDE_INSTALLATION_TOP)/appconfig/icons/C/%B%M.pm:$(CDE_INSTALLATION_TOP)/appconfig/icons/C/%B
+-DEF_PM_PATH = $(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B%M.pm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B%M.bm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B%M.pm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B%M.bm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B:$(CDE_INSTALLATION_TOP)/appconfig/icons/%L/%B%M.pm:$(CDE_INSTALLATION_TOP)/appconfig/icons/%L/%B%M.bm:$(CDE_INSTALLATION_TOP)/appconfig/icons/%L/%B:$(CDE_INSTALLATION_TOP)/appconfig/icons/C/%B%M.pm:$(CDE_INSTALLATION_TOP)/appconfig/icons/C/%B%M.bm:$(CDE_INSTALLATION_TOP)/appconfig/icons/C/%B
++DEF_BM_PATH = $(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B%M.bm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B%M.pm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B%M.bm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B%M.pm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B:$(CDE_DATA_TOP)/appconfig/icons/%L/%B%M.bm:$(CDE_DATA_TOP)/appconfig/icons/%L/%B%M.pm:$(CDE_DATA_TOP)/appconfig/icons/%L/%B:$(CDE_DATA_TOP)/appconfig/icons/C/%B%M.bm:$(CDE_DATA_TOP)/appconfig/icons/C/%B%M.pm:$(CDE_DATA_TOP)/appconfig/icons/C/%B
++DEF_PM_PATH = $(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B%M.pm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B%M.bm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/%L/%B:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B%M.pm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B%M.bm:$(CDE_CONFIGURATION_TOP)/appconfig/icons/C/%B:$(CDE_DATA_TOP)/appconfig/icons/%L/%B%M.pm:$(CDE_DATA_TOP)/appconfig/icons/%L/%B%M.bm:$(CDE_DATA_TOP)/appconfig/icons/%L/%B:$(CDE_DATA_TOP)/appconfig/icons/C/%B%M.pm:$(CDE_DATA_TOP)/appconfig/icons/C/%B%M.bm:$(CDE_DATA_TOP)/appconfig/icons/C/%B
+ 
+ AM_CFLAGS = -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+             -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++            -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+             -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\" \
+ 	    -DBINDIR=\"$(XBINDIR)\" \
+ 	    -DXDMDIR=\"$(XDMDIR)\" \
+diff --git a/programs/dtlogin/config/0015.sun.env.src b/programs/dtlogin/config/0015.sun.env.src
+index e81a92c2..171d0c41 100644
+--- a/programs/dtlogin/config/0015.sun.env.src
++++ b/programs/dtlogin/config/0015.sun.env.src
+@@ -60,9 +60,9 @@ XCOMM ##########################################################################
+   HASH
+   if [ -z "$AB_CARDCATALOG" ]
+   then
+-      export AB_CARDCATALOG=CDE_INSTALLATION_TOP/share/answerbooks/$LANG/ab_cardcatalog
++      export AB_CARDCATALOG=CDE_DATA_TOP/share/answerbooks/$LANG/ab_cardcatalog
+   else
+-      export AB_CARDCATALOG=CDE_INSTALLATION_TOP/share/answerbooks/$LANG/ab_cardcatalog:$AB_CARDCATALOG
++      export AB_CARDCATALOG=CDE_DATA_TOP/share/answerbooks/$LANG/ab_cardcatalog:$AB_CARDCATALOG
+   fi
+ 
+   HASH
+diff --git a/programs/dtlogin/config/Makefile.am b/programs/dtlogin/config/Makefile.am
+index d726edbe..4620b94b 100644
+--- a/programs/dtlogin/config/Makefile.am
++++ b/programs/dtlogin/config/Makefile.am
+@@ -1,6 +1,7 @@
+ 
+ AM_CPPFLAGS = -DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP) \
+             -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++            -DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+             -DCDE_LOGFILES_TOP=$(CDE_LOGFILES_TOP) \
+             -DFONTALIASESCONFDIR=$(sysconfdir)/$(PACKAGE_TARNAME)/fontaliases \
+             -DFONTALIASESDATADIR=$(pkgdatadir)/fontaliases \
+diff --git a/programs/dtlogin/config/Xsession.ow.src b/programs/dtlogin/config/Xsession.ow.src
+index ac1a1a88..71d5bae5 100644
+--- a/programs/dtlogin/config/Xsession.ow.src
++++ b/programs/dtlogin/config/Xsession.ow.src
+@@ -36,7 +36,7 @@ fi
+ if [ -z "$SDT_ALT_HELLO" ]
+ then
+   if [ -x $DTDSPMSG ]; then 
+-     export SDT_ALT_HELLO="CDE_INSTALLATION_TOP/bin/dthello -string '`$DTDSPMSG -s 37 CDE_INSTALLATION_TOP/lib/nls/msg/$LANG/dthello.cat 1 'Starting the OpenWindows Desktop'`' &"
++     export SDT_ALT_HELLO="CDE_INSTALLATION_TOP/bin/dthello -string '`$DTDSPMSG -s 37 CDE_DATA_TOP/lib/nls/msg/$LANG/dthello.cat 1 'Starting the OpenWindows Desktop'`' &"
+   else
+      export SDT_ALT_HELLO="CDE_INSTALLATION_TOP/bin/dthello -string 'Starting the OpenWindows Desktop' &"
+   fi
+diff --git a/programs/dtlogin/dm.h b/programs/dtlogin/dm.h
+index 9c3bfede..4a2593ac 100644
+--- a/programs/dtlogin/dm.h
++++ b/programs/dtlogin/dm.h
+@@ -116,7 +116,7 @@
+ #if defined(_AIX)
+   #define DEF_NLS_DIR	"/usr/lib/nls/loc"
+ #else
+-  #define DEF_NLS_DIR	CDE_INSTALLATION_TOP "/lib/nls/msg"
++  #define DEF_NLS_DIR	CDE_DATA_TOP "/lib/nls/msg"
+ #endif
+ 
+ #if defined(sun)
+diff --git a/programs/dtlogin/util.c b/programs/dtlogin/util.c
+index 26f11a16..67554fe5 100644
+--- a/programs/dtlogin/util.c
++++ b/programs/dtlogin/util.c
+@@ -124,9 +124,9 @@ ReadCatalog( int set_num, int msg_num, char *def_str )
+       * search paths to current NLSPATH.
+       */
+       #define NLS_PATH_STRING  CDE_INSTALLATION_TOP "/nls/msg/%L/%N.cat:" \
+-                         CDE_INSTALLATION_TOP "/lib/nls/msg/%L/%N.cat:" \
+-                         CDE_INSTALLATION_TOP "/lib/nls/msg/%l/%t/%c/%N.cat:" \
+-                         CDE_INSTALLATION_TOP "/lib/nls/msg/%l/%c/%N.cat"
++                         CDE_DATA_TOP "/lib/nls/msg/%L/%N.cat:" \
++                         CDE_DATA_TOP "/lib/nls/msg/%l/%t/%c/%N.cat:" \
++                         CDE_DATA_TOP "/lib/nls/msg/%l/%c/%N.cat"
+ 
+       curNlsPath = getenv("NLSPATH");
+       if (curNlsPath && strlen(curNlsPath) == 0)
+diff --git a/programs/dtlogin/vgutil.c b/programs/dtlogin/vgutil.c
+index 26a1f86f..da006a41 100644
+--- a/programs/dtlogin/vgutil.c
++++ b/programs/dtlogin/vgutil.c
+@@ -76,9 +76,9 @@
+  ****************************************************************************/
+ #define NLSPATH_ENV  "NLSPATH=" \
+                         CDE_INSTALLATION_TOP "/nls/msg/%L/%N.cat:" \
+-                        CDE_INSTALLATION_TOP "/lib/nls/msg/%L/%N.cat:" \
+-                        CDE_INSTALLATION_TOP "/lib/nls/msg/%l/%t/%c/%N.cat:" \
+-                        CDE_INSTALLATION_TOP "/lib/nls/msg/%l/%c/%N.cat"
++                        CDE_DATA_TOP "/lib/nls/msg/%L/%N.cat:" \
++                        CDE_DATA_TOP "/lib/nls/msg/%l/%t/%c/%N.cat:" \
++                        CDE_DATA_TOP "/lib/nls/msg/%l/%c/%N.cat"
+ 
+ #define NLS_CATALOG  "dtlogin"
+ 
+diff --git a/programs/dtopen/Makefile.am b/programs/dtopen/Makefile.am
+index 39eef491..f0e57e4e 100644
+--- a/programs/dtopen/Makefile.am
++++ b/programs/dtopen/Makefile.am
+@@ -3,6 +3,7 @@ MAINTAINERCLEANFILES = Makefile.in
+ dist_bin_SCRIPTS = dtopen
+ 
+ LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++-DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+ 		-DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP) \
+ 		-DKORNSHELL=$(KSH)
+ 
+diff --git a/programs/dtpdm/Makefile.am b/programs/dtpdm/Makefile.am
+index 5afc7f52..442af9eb 100644
+--- a/programs/dtpdm/Makefile.am
++++ b/programs/dtpdm/Makefile.am
+@@ -2,7 +2,8 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ bin_PROGRAMS = dtpdm
+ 
+-dtpdm_CFLAGS = -DI18N_MSG -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\"
++dtpdm_CFLAGS = -DI18N_MSG -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\"
+ 
+ dtpdm_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+ 
+diff --git a/programs/dtpdm/PrinterBox.c b/programs/dtpdm/PrinterBox.c
+index d1847eef..75e52006 100644
+--- a/programs/dtpdm/PrinterBox.c
++++ b/programs/dtpdm/PrinterBox.c
+@@ -44,7 +44,7 @@
+ #define CDE_INSTALLATION_TOP "/usr/dt"
+ #endif
+ 
+-#define ICON_INSTALL_DIR CDE_INSTALLATION_TOP "/appconfig/icons/C/"
++#define ICON_INSTALL_DIR CDE_DATA_TOP "/appconfig/icons/C/"
+ 
+ #ifndef MAX
+ # define MAX(a, b) ((a) > (b) ? (a) : (b))
+diff --git a/programs/dtpdmd/Makefile.am b/programs/dtpdmd/Makefile.am
+index 38c6416a..d36f1378 100644
+--- a/programs/dtpdmd/Makefile.am
++++ b/programs/dtpdmd/Makefile.am
+@@ -2,7 +2,8 @@ MAINTAINERCLEANFILES = Makefile.in
+ 
+ bin_PROGRAMS = dtpdmd
+ 
+-dtpdmd_CFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\"
++dtpdmd_CFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\"
+ 
+ dtpdmd_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+ 
+diff --git a/programs/dtprintegrate/Makefile.am b/programs/dtprintegrate/Makefile.am
+index de01ee11..e80157d6 100644
+--- a/programs/dtprintegrate/Makefile.am
++++ b/programs/dtprintegrate/Makefile.am
+@@ -3,6 +3,7 @@ MAINTAINERCLEANFILES = Makefile.in
+ bin_SCRIPTS = dtprintegrate dtlp dtlpsetup
+ 
+ LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++-DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+ 		-DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP)   \
+ 		-DDTKORNSHELL="$(bindir)/dtksh"  \
+ 		-DKORNSHELL=$(KSH)
+diff --git a/programs/dtprintegrate/dtlpsetup.src b/programs/dtprintegrate/dtlpsetup.src
+index 02d5bfe4..645c9462 100755
+--- a/programs/dtprintegrate/dtlpsetup.src
++++ b/programs/dtprintegrate/dtlpsetup.src
+@@ -14,10 +14,10 @@ XCOMM  US Government Users Restricted Rights - Use, duplication or
+ XCOMM  disclosure restricted by GSA ADP Schedule Contract with IBM Corp.
+ XCOMM
+ XCOMM
+-XCOMM Add CDE_INSTALLATION_TOP/lib/nls/msg/%L/%N.cat to NLSPATH
++XCOMM Add CDE_DATA_TOP/lib/nls/msg/%L/%N.cat to NLSPATH
+ XCOMM
+ 
+-NLSPATH=CDE_INSTALLATION_TOP/lib/nls/msg/%L/%N.cat:$NLSPATH
++NLSPATH=CDE_DATA_TOP/lib/nls/msg/%L/%N.cat:$NLSPATH
+ export NLSPATH
+ 
+ usage="$0 [-b banner_title] [-d lpdest] [-f print_file] 
+diff --git a/programs/dtprintegrate/dtprintegrate.src b/programs/dtprintegrate/dtprintegrate.src
+index 3d2bd8f4..44ca7e48 100755
+--- a/programs/dtprintegrate/dtprintegrate.src
++++ b/programs/dtprintegrate/dtprintegrate.src
+@@ -36,7 +36,7 @@ XCOMM ##  Set default values.
+ XCOMM ##
+ COMMAND_NAME=dtprintegrate
+ 
+-ACTION_STUB_FILE=CDE_INSTALLATION_TOP/appconfig/appmanager/C/Desktop_Apps/Dtcalc
++ACTION_STUB_FILE=CDE_DATA_TOP/appconfig/appmanager/C/Desktop_Apps/Dtcalc
+ 
+ base_icon_name="Fpprnt"
+ 
+@@ -85,7 +85,7 @@ Initialize()
+     HASH
+     HASH Search path for printer icons...
+     HASH
+-    DEFAULT_PATH=.,$HOME/.dt/icons,CDE_INSTALLATION_TOP/appconfig/icons/C
++    DEFAULT_PATH=.,$HOME/.dt/icons,CDE_DATA_TOP/appconfig/icons/C
+     DTPRINTICONPATH=${DTPRINTICONPATH:-$DEFAULT_PATH}
+ 
+     HASH
+diff --git a/programs/dtprintinfo/Makefile.am b/programs/dtprintinfo/Makefile.am
+index 2bbfda8e..5b96fc08 100644
+--- a/programs/dtprintinfo/Makefile.am
++++ b/programs/dtprintinfo/Makefile.am
+@@ -5,6 +5,7 @@ bin_PROGRAMS = dtprintinfo
+ AM_CPPFLAGS = -I./UI -I./libUI -I./util -I./libUI/MotifUI -I./objects	\
+ 	-I./objects/PrintObj -DKORNSHELL=\"$(KSH)\" \
+ 	-DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++	-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 	-DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+ 	-DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dtprintinfo/UI/DtFindSet.C b/programs/dtprintinfo/UI/DtFindSet.C
+index fe3b42ea..eeac9044 100644
+--- a/programs/dtprintinfo/UI/DtFindSet.C
++++ b/programs/dtprintinfo/UI/DtFindSet.C
+@@ -93,7 +93,7 @@ DtFindSet::DtFindSet(DtMainW *parent, char *name, CallerCallback _callback)
+       output = new char[strlen(home) + 80];
+       n_dirs = 3;
+       sprintf(output, "%s/.dt/icons\n"
+-                      CDE_INSTALLATION_TOP "/appconfig/icons/C\n"
++                      CDE_DATA_TOP "/appconfig/icons/C\n"
+                       CDE_CONFIGURATION_TOP "/appconfig/icons/C\n", (home[1] ? home : "" ));
+     }
+    dirs = new char *[n_dirs];
+diff --git a/programs/dtprintinfo/libUI/MotifUI/MotifUI.C b/programs/dtprintinfo/libUI/MotifUI/MotifUI.C
+index 77c1ebe6..aad71c14 100644
+--- a/programs/dtprintinfo/libUI/MotifUI/MotifUI.C
++++ b/programs/dtprintinfo/libUI/MotifUI/MotifUI.C
+@@ -670,8 +670,8 @@ void MotifUI::GetPixmaps(Widget w,
+    char *s;
+    SubstitutionRec subs[1];
+    char *bmPath;
+-   char *PIXMAP_DIR = CDE_INSTALLATION_TOP "/appconfig/icons/%L/%B:"
+-                      CDE_INSTALLATION_TOP "/appconfig/icons/C/%B:"
++   char *PIXMAP_DIR = CDE_DATA_TOP "/appconfig/icons/%L/%B:"
++                      CDE_DATA_TOP "/appconfig/icons/C/%B:"
+                       "/usr/include/X11/bitmaps/%B";
+ 
+    if (*name == '/')
+diff --git a/programs/dtsearchpath/0010.dtpaths.src b/programs/dtsearchpath/0010.dtpaths.src
+index c47d84b2..1d70d3ff 100644
+--- a/programs/dtsearchpath/0010.dtpaths.src
++++ b/programs/dtsearchpath/0010.dtpaths.src
+@@ -53,8 +53,8 @@ XCOMM ##	 Inputs:       DTSPSYSAPPHOSTS, DTSPUSERAPPHOSTS
+ XCOMM ##     Default:      $HOME/.dt/appmanager,
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/appmanager/%L,
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/appmanager/C,
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/appmanager/%L,
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/appmanager/C
++XCOMM ##                   CDE_DATA_TOP/appconfig/appmanager/%L,
++XCOMM ##                   CDE_DATA_TOP/appconfig/appmanager/C
+ XCOMM ##
+ XCOMM ##  DTDATABASESEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for actions and
+@@ -64,8 +64,8 @@ XCOMM ##     Default:      Derived from DTSPSYSAPPHOSTS
+ XCOMM ##                   $HOME/.dt/types,
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/types/%L,
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/types/C,
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/types/%L,
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/types/C
++XCOMM ##                   CDE_DATA_TOP/appconfig/types/%L,
++XCOMM ##                   CDE_DATA_TOP/appconfig/types/C
+ XCOMM ##  DTHELPSEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for online help.
+ XCOMM ##	 Inputs:       DTSPSYSHELP, DTSPUSERHELP
+@@ -73,8 +73,8 @@ XCOMM ##     Default:      Derived from DTSPSYSAPPHOSTS
+ XCOMM ##                   $HOME/.dt/help/%T/[ %H | %H.sdl | %H.hv ],
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/help/%L/%T/[ %H | %H.sdl | %H.hv ],
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/help/C/%T/[ %H | %H.sdl | %H.hv ],
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/help/%L/%T/[ %H | %H.sdl | %H.hv ]
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/help/C/%T/[ %H | %H.sdl | %H.hv ]
++XCOMM ##                   CDE_DATA_TOP/appconfig/help/%L/%T/[ %H | %H.sdl | %H.hv ]
++XCOMM ##                   CDE_DATA_TOP/appconfig/help/C/%T/[ %H | %H.sdl | %H.hv ]
+ XCOMM ##  DTINFOLIBSEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for online help.
+ XCOMM ##	 Inputs:       DTSPSYSINFOLIB, DTSPUSERINFOLIB
+@@ -82,8 +82,8 @@ XCOMM ##     Default:      Derived from DTSPSYSAPPHOSTS and DTSPUSERAPPHOSTS
+ XCOMM ##                   $HOME/.dt/infolib/%I.dt
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/infolib/%L/%I.dti
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/infolib/C/%I.dti
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/infolib/%L/%I.dti
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/infolib/C/%I.dti
++XCOMM ##                   CDE_DATA_TOP/appconfig/infolib/%L/%I.dti
++XCOMM ##                   CDE_DATA_TOP/appconfig/infolib/C/%I.dti
+ XCOMM ##  DTICONSEARCHPATH
+ XCOMM ##     Description:  The directories in which we will look for icons.
+ XCOMM ##	 Inputs:       DTSPSYSICON, DTSPUSERICON
+@@ -91,8 +91,8 @@ XCOMM ##     Default:      Derived from DTSPSYSAPPHOSTS
+ XCOMM ##                   $HOME/.dt/icons/[ %B.pm | %B.bm | %B ],
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/icons/%L/[ %B.pm | %B.bm | %B ],
+ XCOMM ##                   CDE_CONFIGURATION_TOP/appconfig/icons/C/[ %B.pm | %B.bm | %B ],
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/icons/%L/[ %B.pm | %B.bm | %B ]
+-XCOMM ##                   CDE_INSTALLATION_TOP/appconfig/icons/C/[ %B.pm | %B.bm | %B ]
++XCOMM ##                   CDE_DATA_TOP/appconfig/icons/%L/[ %B.pm | %B.bm | %B ]
++XCOMM ##                   CDE_DATA_TOP/appconfig/icons/C/[ %B.pm | %B.bm | %B ]
+ XCOMM ##
+ XCOMM ####################################################################
+ 
+@@ -130,7 +130,7 @@ XCOMM ##    prefix), then that value will be appended to the CDE_CONFIGURATION_T
+ XCOMM ##    default search path.  For example, if you specify a value for the 
+ XCOMM ##    DTSPSYSHELP, then your value will be appended to the normal 
+ XCOMM ##    configuration value -- after "CDE_CONFIGURATION_TOP/appconfig/help" -- but before
+-XCOMM ##    the factory default location--"CDE_INSTALLATION_TOP/appconfig/help".
++XCOMM ##    the factory default location--"CDE_DATA_TOP/appconfig/help".
+ XCOMM ##
+ XCOMM ##    Users may also set the USER equivalents of these search paths. They
+ XCOMM ##    can be done in their $HOME/.dtprofile file, which will be sourced in
+diff --git a/programs/dtsearchpath/Makefile.am b/programs/dtsearchpath/Makefile.am
+index 64deaaa7..bcb48bb1 100644
+--- a/programs/dtsearchpath/Makefile.am
++++ b/programs/dtsearchpath/Makefile.am
+@@ -9,6 +9,7 @@ cfgdir = $(CDE_INSTALLATION_TOP)/config/Xsession.d
+ dist_cfg_SCRIPTS = 0010.dtpaths 0030.dttmpdir
+ 
+ LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP)	\
++-DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+ 	-DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP)		\
+ 	-DCDE_LOGFILES_TOP=$(CDE_LOGFILES_TOP) -DKORNSHELL=$(KSH)
+ 
+diff --git a/programs/dtsearchpath/dtappg/Makefile.am b/programs/dtsearchpath/dtappg/Makefile.am
+index 0668741a..114adcc9 100644
+--- a/programs/dtsearchpath/dtappg/Makefile.am
++++ b/programs/dtsearchpath/dtappg/Makefile.am
+@@ -4,6 +4,7 @@ bin_PROGRAMS = dtappgather
+ 
+ dtappgather_CXXFLAGS = -I../libCliSrv $(DT_INCDIR) \
+     -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+     -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+     -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dtsearchpath/dtappg/dtappgather.C b/programs/dtsearchpath/dtappg/dtappgather.C
+index edb40492..7b318763 100644
+--- a/programs/dtsearchpath/dtappg/dtappgather.C
++++ b/programs/dtsearchpath/dtappg/dtappgather.C
+@@ -217,7 +217,7 @@ void AppManagerDirectory::TraversePath()
+ 	while (!dir.isNull()) {
+ 	    GatherAppsFromASearchElement (dir);
+ 	    dir = subpath.next();
+-	    if (langVersionFound && dir == CDE_INSTALLATION_TOP "/appconfig/appmanager/C")
++	    if (langVersionFound && dir == CDE_DATA_TOP "/appconfig/appmanager/C")
+ 		dir = subpath.next();
+ 	}
+     }
+@@ -271,7 +271,7 @@ void AppManagerDirectory::GatherAppsFromASearchElement
+ 		source.replace("%L",user_->OS()->LANG());
+ 		if (!user_->OS()->isDirectory(source))
+ 		     return;
+-		if (source.contains(CDE_INSTALLATION_TOP "/appconfig/appmanager/"))
++		if (source.contains(CDE_DATA_TOP "/appconfig/appmanager/"))
+ 		    langVersionFound = 1;
+ 	    }
+ 	    else
+diff --git a/programs/dtsearchpath/dtsp/Makefile.am b/programs/dtsearchpath/dtsp/Makefile.am
+index 3b4ac8c2..967ac4ae 100644
+--- a/programs/dtsearchpath/dtsp/Makefile.am
++++ b/programs/dtsearchpath/dtsp/Makefile.am
+@@ -4,6 +4,7 @@ bin_PROGRAMS = dtsearchpath
+ 
+ dtsearchpath_CPPFLAGS = -I../libCliSrv $(DT_INCDIR) \
+     -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+     -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+     -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dtsearchpath/libCliSrv/Environ.C b/programs/dtsearchpath/libCliSrv/Environ.C
+index 80d87cb9..ff0cddf4 100644
+--- a/programs/dtsearchpath/libCliSrv/Environ.C
++++ b/programs/dtsearchpath/libCliSrv/Environ.C
+@@ -57,7 +57,7 @@ CDEEnvironment::CDEEnvironment
+     CString envVar;
+ 
+     sysAdmConfig = CDE_CONFIGURATION_TOP "/appconfig";
+-    factoryInstall = CDE_INSTALLATION_TOP "/appconfig";
++    factoryInstall = CDE_DATA_TOP "/appconfig";
+     factoryManPath = CDE_INSTALLATION_TOP "/man";
+ 
+     envVar = os->getEnvironmentVariable("DTSPSYSAPPHOSTS");
+diff --git a/programs/dtsearchpath/libCliSrv/Makefile.am b/programs/dtsearchpath/libCliSrv/Makefile.am
+index 63110b1f..158bb2d7 100644
+--- a/programs/dtsearchpath/libCliSrv/Makefile.am
++++ b/programs/dtsearchpath/libCliSrv/Makefile.am
+@@ -4,6 +4,7 @@ noinst_LIBRARIES = libCliSrv.a
+ 
+ libCliSrv_a_CXXFLAGS = $(DT_INCDIR) \
+     -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++    -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+     -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+     -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+ 
+diff --git a/programs/dtsession/Makefile.am b/programs/dtsession/Makefile.am
+index 04073cf1..29fc5cd4 100644
+--- a/programs/dtsession/Makefile.am
++++ b/programs/dtsession/Makefile.am
+@@ -11,6 +11,7 @@ DTPAMSVCLIB =
+ endif
+ 
+ dtsession_CFLAGS = -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+           -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+ 	  -Ddtsession
+ 
+@@ -50,6 +51,7 @@ DTSM_CMD5 = $(CDE_INSTALLATION_TOP)/bin/dtaction Dthelpgen_delay
+ 
+ LOCAL_CPP_DEFINES = -DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP) \
+ 		    -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++		    -DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+ 		    -DXRDB=$(XRDB) \
+ 		    -DKORNSHELL=$(KSH) \
+ 		    -DDTSM_CMD1="\"$(DTSM_CMD1)\"" \
+diff --git a/programs/dtsession/SrvFile_io.c b/programs/dtsession/SrvFile_io.c
+index 60edcdee..1a65af39 100644
+--- a/programs/dtsession/SrvFile_io.c
++++ b/programs/dtsession/SrvFile_io.c
+@@ -96,7 +96,7 @@ static int error_value;
+ 
+ #define HOME               "HOME"
+ #define USER_PALETTE_DIR   "/.dt/palettes"
+-#define SYSTEM_PALETTE_DIR CDE_INSTALLATION_TOP "/palettes"
++#define SYSTEM_PALETTE_DIR CDE_DATA_TOP "/palettes"
+ #define CONFIG_PALETTE_DIR CDE_CONFIGURATION_TOP "/palettes"
+ #define DEFAULT_PALETTE    "Default.dp"
+ 
+diff --git a/programs/dtsession/sys.font.src b/programs/dtsession/sys.font.src
+index 8df7a20f..6b7ae3bb 100644
+--- a/programs/dtsession/sys.font.src
++++ b/programs/dtsession/sys.font.src
+@@ -18,7 +18,7 @@
+ !# Font resource values must be a valid font alias name.
+ !#
+ !# Font resource values must match exactly the default font resources 
+-!# specified in CDE_INSTALLATION_TOP/app-defaults/%L/Dtstyle
++!# specified in CDE_DATA_TOP/app-defaults/%L/Dtstyle
+ !###
+ 
+ XCOMM if WIDTH > 1175
+diff --git a/programs/dtsession/sys.resources.src b/programs/dtsession/sys.resources.src
+index 906313e2..4d892da8 100644
+--- a/programs/dtsession/sys.resources.src
++++ b/programs/dtsession/sys.resources.src
+@@ -21,7 +21,7 @@
+ !# Font resource values must be a valid font alias name.
+ !#
+ !# Font resource values must match exactly the default font resources 
+-!# specified in CDE_INSTALLATION_TOP/app-defaults/%L/Dtstyle
++!# specified in CDE_DATA_TOP/app-defaults/%L/Dtstyle
+ !###
+ 
+ XCOMM if WIDTH > 1175
+diff --git a/programs/dtspcd/Makefile.am b/programs/dtspcd/Makefile.am
+index f116e56a..81ddb10a 100644
+--- a/programs/dtspcd/Makefile.am
++++ b/programs/dtspcd/Makefile.am
+@@ -4,6 +4,7 @@ bin_PROGRAMS = dtspcd
+ 
+ dtspcd_CFLAGS = -DCDE_CONFIGURATION_TOP=\"${prefix}\" \
+ 		-DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++		-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 		$(DT_INCDIR)
+ 
+ dtspcd_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+diff --git a/programs/dtstyle/Backdrop.c b/programs/dtstyle/Backdrop.c
+index 92faf1ce..085b6727 100644
+--- a/programs/dtstyle/Backdrop.c
++++ b/programs/dtstyle/Backdrop.c
+@@ -399,8 +399,8 @@ CreateBackdropDialog(
+     /* from that locale's description file from the system location */
+     lang = setlocale (LC_CTYPE,NULL);
+ 
+-    bd_desc = (char *)XtMalloc(strlen(CDE_INSTALLATION_TOP "/backdrops/desc.") + strlen(lang) + 1);
+-    strcpy (bd_desc,CDE_INSTALLATION_TOP "/backdrops/desc.");
++    bd_desc = (char *)XtMalloc(strlen(CDE_DATA_TOP "/backdrops/desc.") + strlen(lang) + 1);
++    strcpy (bd_desc,CDE_DATA_TOP "/backdrops/desc.");
+     strcat (bd_desc, lang);
+     if(sys_bd_DB = XrmGetFileDatabase (bd_desc))
+       	XrmMergeDatabases(sys_bd_DB, &bd_DB);
+@@ -639,7 +639,7 @@ static int
+   backdrops.tmpNumBitmaps = 0;
+   
+   /* read system backdrop directory */
+-    ReadBitmapDirectory(CDE_INSTALLATION_TOP "/backdrops");
++    ReadBitmapDirectory(CDE_DATA_TOP "/backdrops");
+   /* read sys admin backdrop directory */
+   ReadBitmapDirectory(CDE_CONFIGURATION_TOP "/backdrops");
+   
+diff --git a/programs/dtstyle/ColorFile.c b/programs/dtstyle/ColorFile.c
+index 71097543..347d70a4 100644
+--- a/programs/dtstyle/ColorFile.c
++++ b/programs/dtstyle/ColorFile.c
+@@ -124,7 +124,7 @@ static void InitializeBW(
+ /*+++++++++++++++++++++++++++++++++++++++*/
+ /* Internal Variables                    */
+ /*+++++++++++++++++++++++++++++++++++++++*/
+-static char *PALETTE_DIR = CDE_INSTALLATION_TOP "/palettes/";
++static char *PALETTE_DIR = CDE_DATA_TOP "/palettes/";
+ static char *PALETTE_DIR_ADM = CDE_CONFIGURATION_TOP "/palettes/";
+ static char *DEFAULT_FILENAME = "palette.dt";
+ static char *B_O_W = "BlackWhite.dp";
+diff --git a/programs/dtstyle/ColorMain.c b/programs/dtstyle/ColorMain.c
+index c0fe954f..422e8c94 100644
+--- a/programs/dtstyle/ColorMain.c
++++ b/programs/dtstyle/ColorMain.c
+@@ -319,8 +319,8 @@ loadDatabase(void)
+ 
+   lang = setlocale (LC_CTYPE,NULL);
+ 
+-  pl_desc = (char *)XtMalloc(strlen(CDE_INSTALLATION_TOP "/palettes/desc.") + strlen(lang) + 1);
+-  strcpy (pl_desc,CDE_INSTALLATION_TOP "/palettes/desc.");
++  pl_desc = (char *)XtMalloc(strlen(CDE_DATA_TOP "/palettes/desc.") + strlen(lang) + 1);
++  strcpy (pl_desc,CDE_DATA_TOP "/palettes/desc.");
+   strcat (pl_desc, lang);
+   if(sys_pl_DB = XrmGetFileDatabase (pl_desc))
+     XrmMergeDatabases(sys_pl_DB, &pl_DB);
+diff --git a/programs/dtstyle/Main.c b/programs/dtstyle/Main.c
+index aef8329c..db17719a 100644
+--- a/programs/dtstyle/Main.c
++++ b/programs/dtstyle/Main.c
+@@ -563,7 +563,7 @@ malloc_trace(0);
+     string = (char *)XtMalloc(strlen(style.home) + strlen("/.dt/backdrops:") + 1);
+     sprintf(string, "%s/.dt/backdrops:", style.home);
+ 
+-    dirs = (char *)XtCalloc(1, strlen(CDE_CONFIGURATION_TOP "/backdrops:" CDE_INSTALLATION_TOP "/backdrops") + 
++    dirs = (char *)XtCalloc(1, strlen(CDE_CONFIGURATION_TOP "/backdrops:" CDE_DATA_TOP "/backdrops") + 
+ 			    (style.xrdb.backdropDir == NULL ? 2 :
+ 			    strlen(style.xrdb.backdropDir)) + 
+ 			    strlen(string) + 2);
+@@ -575,7 +575,7 @@ malloc_trace(0);
+ 	strcat(dirs, style.xrdb.backdropDir);
+ 	strcat(dirs, ":"); 
+       }
+-    strcat(dirs, CDE_CONFIGURATION_TOP "/backdrops:" CDE_INSTALLATION_TOP "/backdrops");
++    strcat(dirs, CDE_CONFIGURATION_TOP "/backdrops:" CDE_DATA_TOP "/backdrops");
+ 
+     _DtWsmSetBackdropSearchPath(style.screen, dirs, style.useMultiColorIcons);
+ 
+diff --git a/programs/dtstyle/Makefile.am b/programs/dtstyle/Makefile.am
+index 728a2956..f3875693 100644
+--- a/programs/dtstyle/Makefile.am
++++ b/programs/dtstyle/Makefile.am
+@@ -4,6 +4,7 @@ bin_PROGRAMS = dtstyle
+ 
+ dtstyle_CPPFLAGS = -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\"	\
+ 	-DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" -I../dthelp	\
++	-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 	$(DT_INCDIR)
+ 
+ dtstyle_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+@@ -23,7 +24,8 @@ if SOLARIS
+ dtstyle_SOURCES += OWsync.c
+ endif
+ 
+-LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=${prefix}
++LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=${prefix} \
++-DCDE_DATA_TOP=${prefix}
+ 
+ CPP_TARGETS = Dtstyle Backdrops Palettes
+ 
+diff --git a/programs/dtudcfonted/include/udccom.h b/programs/dtudcfonted/include/udccom.h
+index 22f9797f..20342ff2 100644
+--- a/programs/dtudcfonted/include/udccom.h
++++ b/programs/dtudcfonted/include/udccom.h
+@@ -31,7 +31,7 @@
+ #include "udcopt.h"
+ 
+ /* default path of dtaddcpf */
+-#define DFLTPATH 	CDE_INSTALLATION_TOP "/lib/dtudcfonted/dtaddcpf"
++#define DFLTPATH 	CDE_DATA_TOP "/lib/dtudcfonted/dtaddcpf"
+ #define DFLTCMD		"dtaddcpf"
+ 
+ /* commands for exchange font format */
+@@ -39,7 +39,7 @@
+ #define BDFTOPCF_CMD	"bdftopcf"
+ 
+ /* default path for commands */
+-#define SNFTOBDF	CDE_INSTALLATION_TOP "/lib/dtudcfonted/dtgpftobdf"
++#define SNFTOBDF	CDE_DATA_TOP "/lib/dtudcfonted/dtgpftobdf"
+ #ifndef FONTC
+ #define BDFTOPCF        "/usr/bin/X11/bdftopcf"
+ #else
+diff --git a/programs/dtwm/Makefile.am b/programs/dtwm/Makefile.am
+index e9022849..0b3d27d7 100644
+--- a/programs/dtwm/Makefile.am
++++ b/programs/dtwm/Makefile.am
+@@ -10,6 +10,7 @@ CLEANFILES = sys.dtwmrc Dtwm.defs
+ 
+ AM_CPPFLAGS = -DLARGECURSORS -DR2_COMPAT -DOPAQUE -DSHAPE -DUNMAP_ON_RESTART \
+ 	      -DBATCH_DRAG_REQUESTS -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
++	      -DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 	      -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\"
+ 
+ dtwm_LDADD = $(DTCLIENTLIBS) $(XTOOLLIB)
+@@ -41,6 +42,7 @@ dtwm_SOURCES = WmCDInfo.c      WmCDecor.c      WmCEvent.c \
+ dtfplist_SOURCES = Print.c Parse.c DataBaseLoad.c WmParse.c Session.c
+ 
+ SCRIPTFLAGS = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++-DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+               -DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP)
+ 
+ Dtwm.defs: Dtwm.defs.src
+diff --git a/programs/dtwm/WmGlobal.h b/programs/dtwm/WmGlobal.h
+index 8617af97..0b906bd3 100644
+--- a/programs/dtwm/WmGlobal.h
++++ b/programs/dtwm/WmGlobal.h
+@@ -1413,7 +1413,7 @@ typedef struct _WmBackdropData
+ 
+ typedef struct _WmBackdropData *PtrBackdropData;
+ 
+-#define DEFAULT_BACKDROP_DIR CDE_INSTALLATION_TOP "/backdrops"
++#define DEFAULT_BACKDROP_DIR CDE_DATA_TOP "/backdrops"
+ 
+ /*
+  * direction for slide-out panels
+diff --git a/programs/icons/Makefile.am b/programs/icons/Makefile.am
+index 18ae6344..ac1ec8bd 100644
+--- a/programs/icons/Makefile.am
++++ b/programs/icons/Makefile.am
+@@ -1,6 +1,6 @@
+ MAINTAINERCLEANFILES = Makefile.in
+ 
+-icondir = $(CDE_INSTALLATION_TOP)/appconfig/icons/C
++icondir = $(CDE_DATA_TOP)/appconfig/icons/C
+ 
+ dist_icon_DATA = \
+ acroread.l.pm                   Dtmanpg.t.pm \
+diff --git a/programs/localized/C/app-defaults/Makefile.am b/programs/localized/C/app-defaults/Makefile.am
+index 16f2b5e4..0ca27d78 100644
+--- a/programs/localized/C/app-defaults/Makefile.am
++++ b/programs/localized/C/app-defaults/Makefile.am
+@@ -5,8 +5,8 @@ include ../../templates/app-defaults.am
+ 
+ # Setup a symlink from C -> en_US.UTF-8
+ install-data-hook:
+-	$(RM) $(DESTDIR)$(CDE_INSTALLATION_TOP)/app-defaults/en_US.UTF-8
+-	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/app-defaults/ && $(LN_S) C en_US.UTF-8
++	$(RM) $(DESTDIR)$(CDE_DATA_TOP)/app-defaults/en_US.UTF-8
++	cd $(DESTDIR)$(CDE_DATA_TOP)/app-defaults/ && $(LN_S) C en_US.UTF-8
+ 
+ 
+ 
+diff --git a/programs/localized/C/appmanager/Makefile.am b/programs/localized/C/appmanager/Makefile.am
+index f6f1cc99..0f944433 100644
+--- a/programs/localized/C/appmanager/Makefile.am
++++ b/programs/localized/C/appmanager/Makefile.am
+@@ -5,5 +5,5 @@ include ../../templates/appmgr.am
+ 
+ # Setup a symlink from C -> en_US.UTF-8
+ install-data-hook:
+-	$(RM) $(DESTDIR)$(CDE_INSTALLATION_TOP)/appconfig/appmanager/en_US.UTF-8
+-	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/appconfig/appmanager/ && $(LN_S) C en_US.UTF-8
++	$(RM) $(DESTDIR)$(CDE_DATA_TOP)/appconfig/appmanager/en_US.UTF-8
++	cd $(DESTDIR)$(CDE_DATA_TOP)/appconfig/appmanager/ && $(LN_S) C en_US.UTF-8
+diff --git a/programs/localized/C/backdrops/Makefile.am b/programs/localized/C/backdrops/Makefile.am
+index d51bb470..ac4b1db9 100644
+--- a/programs/localized/C/backdrops/Makefile.am
++++ b/programs/localized/C/backdrops/Makefile.am
+@@ -5,7 +5,7 @@ include ../../templates/backdrops.am
+ 
+ # Setup a symlink from C -> en_US.UTF-8
+ install-data-hook:
+-	$(RM) $(DESTDIR)$(CDE_INSTALLATION_TOP)/share/backdrops/desc.en_US.UTF-8
+-	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/share/backdrops/ && $(LN_S) desc.C desc.en_US.UTF-8
++	$(RM) $(DESTDIR)$(CDE_DATA_TOP)/share/backdrops/desc.en_US.UTF-8
++	cd $(DESTDIR)$(CDE_DATA_TOP)/share/backdrops/ && $(LN_S) desc.C desc.en_US.UTF-8
+ 
+ 
+diff --git a/programs/localized/C/msg/Makefile.am b/programs/localized/C/msg/Makefile.am
+index bade8fa1..6f9ac717 100644
+--- a/programs/localized/C/msg/Makefile.am
++++ b/programs/localized/C/msg/Makefile.am
+@@ -5,5 +5,5 @@ include ../../templates/msg.C.am
+ 
+ # Setup a symlink from C -> en_US.UTF-8
+ install-data-hook:
+-	$(RM) -rf $(DESTDIR)$(CDE_INSTALLATION_TOP)/lib/nls/msg/en_US.UTF-8
+-	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/lib/nls/msg/ && $(LN_S) C en_US.UTF-8
++	$(RM) -rf $(DESTDIR)$(CDE_DATA_TOP)/lib/nls/msg/en_US.UTF-8
++	cd $(DESTDIR)$(CDE_DATA_TOP)/lib/nls/msg/ && $(LN_S) C en_US.UTF-8
+diff --git a/programs/localized/C/palettes/Makefile.am b/programs/localized/C/palettes/Makefile.am
+index 9ddc5990..152c0479 100644
+--- a/programs/localized/C/palettes/Makefile.am
++++ b/programs/localized/C/palettes/Makefile.am
+@@ -5,7 +5,7 @@ include ../../templates/palettes.am
+ 
+ # link the C version to en_US.UTF-8
+ install-data-hook:
+-	$(RM) $(DESTDIR)$(CDE_INSTALLATION_TOP)/share/palettes/desc.en_US.UTF-8
+-	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/share/palettes/ && $(LN_S) desc.C desc.en_US.UTF-8
++	$(RM) $(DESTDIR)$(CDE_DATA_TOP)/share/palettes/desc.en_US.UTF-8
++	cd $(DESTDIR)$(CDE_DATA_TOP)/share/palettes/ && $(LN_S) desc.C desc.en_US.UTF-8
+ 
+ 
+diff --git a/programs/localized/C/types/Makefile.am b/programs/localized/C/types/Makefile.am
+index 56c8d69e..cb8d1ab6 100644
+--- a/programs/localized/C/types/Makefile.am
++++ b/programs/localized/C/types/Makefile.am
+@@ -5,6 +5,6 @@ include ../../templates/types.am
+ 
+ # Setup a symlink from C -> en_US.UTF-8
+ install-data-hook:
+-	$(RM) $(DESTDIR)$(CDE_INSTALLATION_TOP)/appconfig/types/en_US.UTF-8
+-	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/appconfig/types/ && $(LN_S) C en_US.UTF-8
++	$(RM) $(DESTDIR)$(CDE_DATA_TOP)/appconfig/types/en_US.UTF-8
++	cd $(DESTDIR)$(CDE_DATA_TOP)/appconfig/types/ && $(LN_S) C en_US.UTF-8
+ 
+diff --git a/programs/localized/templates/app-defaults.am b/programs/localized/templates/app-defaults.am
+index 4bae23ae..3fbafb22 100644
+--- a/programs/localized/templates/app-defaults.am
++++ b/programs/localized/templates/app-defaults.am
+@@ -8,7 +8,7 @@ BUILT_SOURCES = Dthelpview Dtimsstart Dtlogin Dthello Dtsession		\
+ 
+ CLEANFILES = $(BUILT_SOURCES)
+ 
+-appdefdir = $(CDE_INSTALLATION_TOP)/app-defaults/$(LANG)
++appdefdir = $(CDE_DATA_TOP)/app-defaults/$(LANG)
+ dist_appdef_DATA = $(BUILT_SOURCES)
+ 
+ TOP = $(top_builddir)/programs
+diff --git a/programs/localized/templates/appmgr.am b/programs/localized/templates/appmgr.am
+index 32d0484b..b2cf1ff5 100644
+--- a/programs/localized/templates/appmgr.am
++++ b/programs/localized/templates/appmgr.am
+@@ -2,7 +2,7 @@
+ 
+ ACTION = $(top_builddir)/programs/localized/$(LANG)/types/action
+ 
+-desktop_appsdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Desktop_Apps
++desktop_appsdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Desktop_Apps
+ desktop_apps_SCRIPTS = Desktop_Apps/Dtmanpageview			\
+ 	Desktop_Apps/Dthelpview Desktop_Apps/DtPrintManager		\
+ 	Desktop_Apps/Dtcreate Desktop_Apps/Dtstyle			\
+@@ -12,36 +12,36 @@ desktop_apps_SCRIPTS = Desktop_Apps/Dtmanpageview			\
+ 	Desktop_Apps/Dticon Desktop_Apps/Dtcm Desktop_Apps/Dtfile	\
+ 	Desktop_Apps/Dtcalc
+ 
+-graphicsdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Graphics
++graphicsdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Graphics
+ graphics_SCRIPTS = Graphics/xv Graphics/fontforge Graphics/gimp	\
+ 	Graphics/inkscape Graphics/okular
+ 
+-internetdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Internet
++internetdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Internet
+ internet_SCRIPTS = Internet/firefox Internet/nxclient		\
+ 	Internet/thunderbird Internet/skype Internet/chromium
+ 
+-gamesdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Games
++gamesdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Games
+ games_SCRIPTS = Games/pychess Games/powermanga Games/eboard	\
+ 	Games/supertux Games/dreamchess Games/lbreakout2	\
+ 	Games/gcompris Games/xboard Games/ktuberling
+ 
+-texdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Tex
++texdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Tex
+ tex_SCRIPTS = TeX/xdvi TeX/acroread TeX/xpdf TeX/TeX TeX/mgv	\
+ 	TeX/emacs TeX/gv TeX/kile TeX/xournal
+ 
+-officedir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Office
++officedir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Office
+ office_SCRIPTS = Office/nedit Office/libreoffice-calc		\
+ 	Office/libreoffice-writer Office/acroread Office/xpdf	\
+ 	Office/libreoffice-draw Office/libreoffice-base		\
+ 	Office/libreoffice-main Office/libreoffice-math		\
+ 	Office/libreoffice-impress Office/xournal
+ 
+-systemdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/System
++systemdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/System
+ system_SCRIPTS = System/caja System/firestarter System/virtualbox	\
+ 	System/engrampa System/wicd System/synaptic			\
+ 	System/file-roller System/pgadmin
+ 
+-desktop_toolsdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Desktop_Tools
++desktop_toolsdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Desktop_Tools
+ desktop_tools_SCRIPTS = Desktop_Tools/Rm Desktop_Tools/DttermRlogin	\
+ 	Desktop_Tools/Env Desktop_Tools/Uncompress			\
+ 	Desktop_Tools/Xclipboard Desktop_Tools/Xwd			\
+@@ -65,17 +65,17 @@ desktop_tools_SCRIPTS = Desktop_Tools/Rm Desktop_Tools/DttermRlogin	\
+ 	Desktop_Tools/DttermDtspcd Desktop_Tools/DtwmrcEdit		\
+ 	Desktop_Tools/XtermDtspcd
+ 
+-media_toolsdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Media_Tools
++media_toolsdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Media_Tools
+ media_tools_SCRIPTS = Media_Tools/k3b Media_Tools/rhythmbox		\
+ 	Media_Tools/xine Media_Tools/vlc Media_Tools/rosegarden		\
+ 	Media_Tools/pavucontrol Media_Tools/sound-juicer		\
+ 	Media_Tools/amarok Media_Tools/brasero Media_Tools/k9copy
+ 
+-educationdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Education
++educationdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Education
+ education_SCRIPTS = Education/tuxpaint Education/gcompris	\
+ 	Education/stellarium Education/geogebra
+ 
+-informationdir = $(CDE_INSTALLATION_TOP)/appconfig/appmanager/$(LANG)/Information
++informationdir = $(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/Information
+ information_SCRIPTS = Information/OpenDtIntro
+ 
+ appmgr_allfiles = $(desktop_apps_SCRIPTS) $(graphics_SCRIPTS)		\
+diff --git a/programs/localized/templates/backdrops.am b/programs/localized/templates/backdrops.am
+index bda16302..8fd23853 100644
+--- a/programs/localized/templates/backdrops.am
++++ b/programs/localized/templates/backdrops.am
+@@ -3,7 +3,7 @@
+ BUILT_SOURCES = desc.$(LANG)
+ CLEANFILES = $(BUILT_SOURCES)
+ 
+-backdropsdir = $(CDE_INSTALLATION_TOP)/share/backdrops
++backdropsdir = $(CDE_DATA_TOP)/share/backdrops
+ dist_backdrops_DATA = $(BUILT_SOURCES)
+ 
+ TOP = $(top_builddir)/programs
+diff --git a/programs/localized/templates/msg.C.am b/programs/localized/templates/msg.C.am
+index 5929b330..6c628312 100644
+--- a/programs/localized/templates/msg.C.am
++++ b/programs/localized/templates/msg.C.am
+@@ -15,7 +15,7 @@ BUILT_SOURCES = Xm.cat Mrm.cat Uil.cat DtHelp.cat DtMail.cat		\
+ 
+ CLEANFILES = $(BUILT_SOURCES)
+ 
+-msgcatdir = $(CDE_INSTALLATION_TOP)/lib/nls/msg/$(LANG)
++msgcatdir = $(CDE_DATA_TOP)/lib/nls/msg/$(LANG)
+ dist_msgcat_DATA = $(BUILT_SOURCES)
+ 
+ TOP = $(top_builddir)/programs
+diff --git a/programs/localized/templates/msg.am b/programs/localized/templates/msg.am
+index 1842a2d9..2f99d55b 100644
+--- a/programs/localized/templates/msg.am
++++ b/programs/localized/templates/msg.am
+@@ -4,7 +4,7 @@
+ BUILT_SOURCES = $(shell ls *.msg |grep -v libAB |sed -e 's/.msg/.cat/g')
+ CLEANFILES = $(BUILT_SOURCES)
+ 
+-msgcatdir = $(CDE_INSTALLATION_TOP)/lib/nls/msg/$(LANG)
++msgcatdir = $(CDE_DATA_TOP)/lib/nls/msg/$(LANG)
+ dist_msgcat_DATA = $(BUILT_SOURCES)
+ 
+ SUFFIXES = .msg .cat
+diff --git a/programs/localized/templates/palettes.am b/programs/localized/templates/palettes.am
+index 58b54d27..e6792033 100644
+--- a/programs/localized/templates/palettes.am
++++ b/programs/localized/templates/palettes.am
+@@ -3,7 +3,7 @@
+ BUILT_SOURCES = desc.$(LANG)
+ CLEANFILES = $(BUILT_SOURCES)
+ 
+-palettesdir = $(CDE_INSTALLATION_TOP)/share/palettes
++palettesdir = $(CDE_DATA_TOP)/share/palettes
+ dist_palettes_DATA = $(BUILT_SOURCES)
+ 
+ TOP = $(top_builddir)/programs
+diff --git a/programs/localized/templates/types.am b/programs/localized/templates/types.am
+index 13901654..f16e9ec3 100644
+--- a/programs/localized/templates/types.am
++++ b/programs/localized/templates/types.am
+@@ -26,7 +26,7 @@ BUILT_SOURCES = $(DTTYPES) action
+ CLEANFILES = $(BUILT_SOURCES)
+ 
+ # we do not want to install 'action'
+-typesdir = $(CDE_INSTALLATION_TOP)/appconfig/types/$(LANG)
++typesdir = $(CDE_DATA_TOP)/appconfig/types/$(LANG)
+ dist_types_DATA = $(DTTYPES)
+ 
+ TOP = $(top_builddir)/programs
+diff --git a/programs/palettes/Makefile.am b/programs/palettes/Makefile.am
+index 32abd4be..b80e4973 100644
+--- a/programs/palettes/Makefile.am
++++ b/programs/palettes/Makefile.am
+@@ -1,4 +1,4 @@
+-palettedir = $(CDE_INSTALLATION_TOP)/share/palettes
++palettedir = $(CDE_DATA_TOP)/share/palettes
+ 
+ dist_palette_DATA = Alpine.dp Chocolate.dp Grass.dp PBNJ.dp Tundra.dp	\
+ 	Arizona.dp Cinnamon.dp GrayScale.dp Sand.dp Urchin.dp		\
+@@ -10,5 +10,5 @@ dist_palette_DATA = Alpine.dp Chocolate.dp Grass.dp PBNJ.dp Tundra.dp	\
+ 	SouthWest.dp Charcoal.dp Golden.dp Orchid.dp Summer.dp
+ 
+ install-data-hook:
+-	$(RM) $(DESTDIR)$(CDE_INSTALLATION_TOP)/palettes
++	$(RM) $(DESTDIR)$(CDE_DATA_TOP)/palettes
+ 	cd $(DESTDIR)$(CDE_INSTALLATION_TOP)/ && $(LN_S) share/palettes palettes
+diff --git a/programs/ttsnoop/Makefile.am b/programs/ttsnoop/Makefile.am
+index 3783388d..25655fa8 100644
+--- a/programs/ttsnoop/Makefile.am
++++ b/programs/ttsnoop/Makefile.am
+@@ -1,6 +1,6 @@
+ MAINTAINERCLEANFILES = Makefile.in
+ 
+-appdefaultsdir = $(CDE_INSTALLATION_TOP)/app-defaults/C
++appdefaultsdir = $(CDE_DATA_TOP)/app-defaults/C
+ 
+ dist_appdefaults_DATA = Ttsnoop
+ 
+diff --git a/programs/tttypes/Makefile.am b/programs/tttypes/Makefile.am
+index 47471a49..c746af3b 100644
+--- a/programs/tttypes/Makefile.am
++++ b/programs/tttypes/Makefile.am
+@@ -22,7 +22,7 @@ LOCALDEPFILES = \
+ BUILT_SOURCES = types.xdr
+ CLEANFILES = *.done types.xdr .tt_lock
+ 
+-tttypesdir = $(CDE_INSTALLATION_TOP)/appconfig/tttypes
++tttypesdir = $(CDE_DATA_TOP)/appconfig/tttypes
+ dist_tttypes_DATA = $(BUILT_SOURCES)
+ 
+ types.xdr: $(LOCALDEPFILES)
+diff --git a/programs/types/Makefile.am b/programs/types/Makefile.am
+index 0e23e147..79164bdc 100644
+--- a/programs/types/Makefile.am
++++ b/programs/types/Makefile.am
+@@ -1,6 +1,7 @@
+ MAINTAINERCLEANFILES = Makefile.in
+ 
+ LOCAL_CPP_DEFINES = -DCDE_INSTALLATION_TOP=$(CDE_INSTALLATION_TOP) \
++-DCDE_DATA_TOP=$(CDE_DATA_TOP) \
+ 	-DCDE_CONFIGURATION_TOP=$(CDE_CONFIGURATION_TOP) \
+ 	-DCDE_LOGFILES_TOP=$(CDE_LOGFILES_TOP) -DKORNSHELL=$(KSH) \
+ 	-DDTKORNSHELL=$(CDE_INSTALLATION_TOP)/bin/dtksh
+@@ -10,8 +11,8 @@ LOCAL_CPP_DEFINES += -D__sun
+ endif
+ 
+ BUILT_SOURCES = autoStart.dt compat.dt datatypes.dt develop.dt		\
+-	dtappman.dt dt.dt dtfile.dt dthelp.dt dthelpprint.dt		\
+-	dthelptag.dt dtims.dt dtinfo.dt dtpad.dt dtscreen.dt		\
++	dtappman.dt dt.dt dtcm.dt dtfile.dt dthelp.dt dthelpprint.dt	\
++	dthelptag.dt dtims.dt dtinfo.dt dtmail.dt dtpad.dt dtscreen.dt	\
+ 	dt.softinit dtwm.fp error.ds hp.dt ibm.dt IconBrowse.dt		\
+ 	laserrom.dt miscActions.dt miscImages.dt print.dt		\
+ 	printerNN.dt sunOW.dt unsupported.dt user-prefs.dt uxstd.dt	\
+@@ -32,6 +33,14 @@ compat.dt: compat.dt.src
+ datatypes.dt: datatypes.dt.src
+ 	$(RM) $@
+ 	$(GENCPP) -P -C -DXCOMM=# $(LOCAL_CPP_DEFINES) $< > $@
++dtcm.dt: dtcm.dt.src
++	$(RM) $@
++	$(GENCPP) -P -C -DXCOMM=# $(LOCAL_CPP_DEFINES) $< > $@
++
++dtmail.dt: dtmail.dt.src
++	$(RM) $@
++	$(GENCPP) -P -C -DXCOMM=# $(LOCAL_CPP_DEFINES) $< > $@
++
+ 
+ develop.dt: develop.dt.src
+ 	$(RM) $@
+diff --git a/programs/types/dtcm.dt b/programs/types/dtcm.dt
+deleted file mode 100644
+index 4360e1e6..00000000
+--- a/programs/types/dtcm.dt
++++ /dev/null
+@@ -1,128 +0,0 @@
+-###############################################################################
+-#
+-#     dtcm.dt
+-#
+-#     Action and DataType definitions for the Common Desktop Environment
+-#     (CDE) Calendar Component.
+-#
+-#    (c) Copyright 1993, 1994, 1995 Hewlett-Packard Company
+-#    (c) Copyright 1993, 1994, 1995 International Business Machines Corp.
+-#    (c) Copyright 1993, 1994, 1995 Sun Microsystems, Inc.
+-#    (c) Copyright 1993, 1994, 1995 Novell, Inc.
+-#
+-#
+-###############################################################################
+-set DtDbVersion=1.0
+-
+-###############################################################################
+-#
+-%|nls-10-#\# WARNING:...#|
+-#
+-###############################################################################
+-
+-###################################################################
+-#
+-%|nls-11-#\# Data Attributes#|
+-#
+-###################################################################
+-DATA_ATTRIBUTES DtcmAppointmentAttrs
+-{
+-	ACTIONS		Open,Insert,Print
+-	ICON		DtCMapt
+-	NAME_TEMPLATE	%s.appt
+-        MIME_TYPE	text/plain
+-        SUNV3_TYPE      ae-file
+-	MEDIA		DT_APPOINTMENT
+-	DESCRIPTION	%|nls-20001-#This file...#|
+-	TYPE_LABEL      %|nls-31100-#DtcmAppointmentAttrs#|
+-}
+-DATA_CRITERIA DtcmAppointmentAttrs1
+-{
+-	DATA_ATTRIBUTES_NAME DtcmAppointmentAttrs
+-	MODE 		fr
+-	NAME_PATTERN	*.appt
+-}
+-DATA_CRITERIA DtcmAppointmentAttrs2
+-{
+-	DATA_ATTRIBUTES_NAME DtcmAppointmentAttrs
+-	MODE 		fr
+-	CONTENT		3 string ** Calendar Appointment **
+-}
+-DATA_CRITERIA DtcmAppointmentAttrs3
+-{
+-        DATA_ATTRIBUTES_NAME DtcmAppointmentAttrs
+-        MODE            fr
+-        CONTENT         3 string ** Calendar To Do Item **
+-}
+-ACTION Open
+-{
+-        LABEL		%|nls-1-#Open#|
+-        ARG_TYPE        DtcmAppointmentAttrs
+-        TYPE            MAP
+-        MAP_ACTION      DtcmEdit
+-}
+-ACTION Insert
+-{
+-        LABEL		%|nls-20008-#Insert#|
+-        ARG_TYPE        DtcmAppointmentAttrs
+-        TYPE            MAP
+-        MAP_ACTION      DtcmInsert
+-}
+-ACTION Print
+-{
+-        LABEL		%|nls-2-#Open#|
+-        ARG_TYPE        DtcmAppointmentAttrs
+-        TYPE            MAP
+-        MAP_ACTION      NoPrint
+-}
+-
+-
+-###################################################################
+-###################################################################
+-#
+-%|nls-12-#\# Actions#|
+-#
+-###################################################################
+-ACTION Dtcm
+-{
+-        LABEL		%|nls-20002-#Calendar#|
+-        ICON            DtCM
+-	TYPE		COMMAND
+-	EXEC_STRING	/usr/dt/bin/dtcm
+-	WINDOW_TYPE	NO_STDIO
+-	DESCRIPTION	%|nls-20003-#The Calendar...#|
+-}
+-
+-######
+-
+-ACTION DtcmInsert
+-{
+-        LABEL		%|nls-20004-#Calendar Insert#|
+-	TYPE		COMMAND
+-	WINDOW_TYPE	NO_STDIO
+-	EXEC_STRING     sh -c '/usr/dt/bin/dtcm_insert  -a "%(File)Arg_1%" ;\
+-			if [ \$? -ne 0 ] ; then \
+-			  /usr/dt/bin/dterror.ds \
+-			    "%|nls-20009-#Calendar Insert error.#|" \
+-			    "%|nls-20010-#Calendar : Error - Schedule.#|" \
+-			    "%|nls-6-#OK#|" ; \
+-			fi'
+-	DESCRIPTION	%|nls-20005-#The Calendar Insert...#|
+-}
+-
+-######
+-
+-ACTION DtcmEdit
+-{
+-        LABEL		%|nls-20006-#Calendar Edit#|
+-        TYPE            TT_MSG
+-	TT_SCOPE	TT_SESSION
+-	TT_CLASS	TT_REQUEST
+-	TT_OPERATION	Edit
+-	TT_ARG0_MODE	TT_INOUT
+-	TT_ARG0_VTYPE	%Arg_1%
+-	TT_FILE		%Arg_1"%|nls-20011-#Appointment File:#|"%
+-	DESCRIPTION	%|nls-20007-#The Calendar Edit...#|
+-}
+-
+-########################### EOF ##############################################
+diff --git a/programs/types/dtcm.dt.src b/programs/types/dtcm.dt.src
+new file mode 100644
+index 00000000..fda13552
+--- /dev/null
++++ b/programs/types/dtcm.dt.src
+@@ -0,0 +1,128 @@
++XCOMM##############################################################################
++XCOMM
++XCOMM     dtcm.dt
++XCOMM
++XCOMM     Action and DataType definitions for the Common Desktop Environment
++XCOMM     (CDE) Calendar Component.
++XCOMM
++XCOMM    (c) Copyright 1993, 1994, 1995 Hewlett-Packard Company
++XCOMM    (c) Copyright 1993, 1994, 1995 International Business Machines Corp.
++XCOMM    (c) Copyright 1993, 1994, 1995 Sun Microsystems, Inc.
++XCOMM    (c) Copyright 1993, 1994, 1995 Novell, Inc.
++XCOMM
++XCOMM
++XCOMM##############################################################################
++set DtDbVersion=1.0
++
++XCOMM##############################################################################
++XCOMM
++%|nls-10-#\# WARNING:...#|
++XCOMM
++XCOMM##############################################################################
++
++XCOMM##################################################################
++XCOMM
++%|nls-11-#\# Data Attributes#|
++XCOMM
++XCOMM##################################################################
++DATA_ATTRIBUTES DtcmAppointmentAttrs
++{
++	ACTIONS		Open,Insert,Print
++	ICON		DtCMapt
++	NAME_TEMPLATE	%s.appt
++        MIME_TYPE	text/plain
++        SUNV3_TYPE      ae-file
++	MEDIA		DT_APPOINTMENT
++	DESCRIPTION	%|nls-20001-#This file...#|
++	TYPE_LABEL      %|nls-31100-#DtcmAppointmentAttrs#|
++}
++DATA_CRITERIA DtcmAppointmentAttrs1
++{
++	DATA_ATTRIBUTES_NAME DtcmAppointmentAttrs
++	MODE 		fr
++	NAME_PATTERN	*.appt
++}
++DATA_CRITERIA DtcmAppointmentAttrs2
++{
++	DATA_ATTRIBUTES_NAME DtcmAppointmentAttrs
++	MODE 		fr
++	CONTENT		3 string ** Calendar Appointment **
++}
++DATA_CRITERIA DtcmAppointmentAttrs3
++{
++        DATA_ATTRIBUTES_NAME DtcmAppointmentAttrs
++        MODE            fr
++        CONTENT         3 string ** Calendar To Do Item **
++}
++ACTION Open
++{
++        LABEL		%|nls-1-#Open#|
++        ARG_TYPE        DtcmAppointmentAttrs
++        TYPE            MAP
++        MAP_ACTION      DtcmEdit
++}
++ACTION Insert
++{
++        LABEL		%|nls-20008-#Insert#|
++        ARG_TYPE        DtcmAppointmentAttrs
++        TYPE            MAP
++        MAP_ACTION      DtcmInsert
++}
++ACTION Print
++{
++        LABEL		%|nls-2-#Open#|
++        ARG_TYPE        DtcmAppointmentAttrs
++        TYPE            MAP
++        MAP_ACTION      NoPrint
++}
++
++
++XCOMM##################################################################
++XCOMM##################################################################
++XCOMM
++%|nls-12-#\# Actions#|
++XCOMM
++XCOMM##################################################################
++ACTION Dtcm
++{
++        LABEL		%|nls-20002-#Calendar#|
++        ICON            DtCM
++	TYPE		COMMAND
++	EXEC_STRING	CDE_INSTALLATION_TOP/bin/dtcm
++	WINDOW_TYPE	NO_STDIO
++	DESCRIPTION	%|nls-20003-#The Calendar...#|
++}
++
++XCOMM#####
++
++ACTION DtcmInsert
++{
++        LABEL		%|nls-20004-#Calendar Insert#|
++	TYPE		COMMAND
++	WINDOW_TYPE	NO_STDIO
++	EXEC_STRING     sh -c 'CDE_INSTALLATION_TOP/bin/dtcm_insert  -a "%(File)Arg_1%" ;\
++			if [ \$? -ne 0 ] ; then \
++			  CDE_INSTALLATION_TOP/bin/dterror.ds \
++			    "%|nls-20009-#Calendar Insert error.#|" \
++			    "%|nls-20010-#Calendar : Error - Schedule.#|" \
++			    "%|nls-6-#OK#|" ; \
++			fi'
++	DESCRIPTION	%|nls-20005-#The Calendar Insert...#|
++}
++
++XCOMM#####
++
++ACTION DtcmEdit
++{
++        LABEL		%|nls-20006-#Calendar Edit#|
++        TYPE            TT_MSG
++	TT_SCOPE	TT_SESSION
++	TT_CLASS	TT_REQUEST
++	TT_OPERATION	Edit
++	TT_ARG0_MODE	TT_INOUT
++	TT_ARG0_VTYPE	%Arg_1%
++	TT_FILE		%Arg_1"%|nls-20011-#Appointment File:#|"%
++	DESCRIPTION	%|nls-20007-#The Calendar Edit...#|
++}
++
++XCOMM########################## EOF ##############################################
+diff --git a/programs/types/dtmail.dt b/programs/types/dtmail.dt
+deleted file mode 100644
+index 06b73b82..00000000
+--- a/programs/types/dtmail.dt
++++ /dev/null
+@@ -1,176 +0,0 @@
+-
+-        ###############################################################################
+-#
+-#     dtmail.dt
+-#
+-#     Action and DataType definitions for the Common Desktop Environment
+-#     (CDE) Mailer Component.
+-#
+-#    (c) Copyright 1993, 1994, 1995 Hewlett-Packard Company
+-#    (c) Copyright 1993, 1994, 1995 International Business Machines Corp.
+-#    (c) Copyright 1993, 1994, 1995 Sun Microsystems, Inc.
+-#    (c) Copyright 1993, 1994, 1995 Novell, Inc.
+-#
+-#    $TOG: dtmail.dt /main/11 1998/11/02 10:53:40 mgreess $
+-#    @(#)dtmail.dt	1.32 10 Aug 1994
+-###############################################################################
+-set DtDbVersion=1.0
+-
+-###############################################################################
+-#
+-%|nls-10-#\# WARNING:...#|
+-#
+-###############################################################################
+-
+-###################################################################
+-#
+-%|nls-11-#\# Data Attributes#|
+-#
+-###################################################################
+-DATA_ATTRIBUTES DTMAIL_FILE
+-{
+-	ACTIONS		Open,Compose
+-	ICON	        DtMail
+-        IS_TEXT		true
+- 	MOVE_TO_ACTION	MailAppendRm
+-	COPY_TO_ACTION	MailAppend
+-	MEDIA		RFC_822_MESSAGE
+-        MIME_TYPE	message/rfc822
+-        SUNV3_TYPE      mail-message
+-	DESCRIPTION	%|nls-17001-#A DTMAIL_FILE ...#|
+-	TYPE_LABEL      %|nls-31104-#DTMAIL_FILE#|
+-}
+-DATA_CRITERIA DTMAIL_FILE1
+-{
+-	DATA_ATTRIBUTES_NAME	DTMAIL_FILE
+-	CONTENT		64 string CDE-Mail-Application-MailBox-File
+-	MODE		f&!x
+-}
+-DATA_CRITERIA DTMAIL_FILE2
+-{
+-	DATA_ATTRIBUTES_NAME	DTMAIL_FILE
+-	CONTENT		0 string From 
+-	MODE		f&!x
+-}
+-ACTION MailAppend
+-{
+-	TYPE		COMMAND
+-        ARG_COUNT       2
+-	WINDOW_TYPE	NO_STDIO
+-        EXEC_STRING     sh -c ' \
+-         if [ "%(File)Arg_2%" !=  "%(File)Arg_1%" ];\
+-          then \
+-             # check if the source is DTMAIL_FILE ;\
+-             # we only accept DTMAIL_FILE as drag source ;\
+-             IS_DTMAIL=`/usr/dt/bin/dttypes -type "%(File)Arg_2%"|grep DTMAIL_FILE`;\
+-             if  [ -n "\$IS_DTMAIL" ]; then \
+-               ERROR=`cat "%(File)Arg_2%" >> "%(File)Arg_1%" \
+-                   2>/tmp/dtmail.\$\$ || cat /tmp/dtmail.\$\$`; \
+-               [ -f /tmp/dtmail.\$\$ ] && /bin/rm -f /tmp/dtmail.\$\$; \
+-               if [ -n "\$ERROR" ]; then \
+-                 /usr/dt/bin/dterror.ds \
+-                  "\$ERROR" "%|nls-13011-#Information#|" \
+-                  "%|nls-6-#OK#|"; \
+-               fi; \
+-            else  \
+-             /usr/dt/bin/dterror.ds \
+-             "%|nls-2035-#NO Action#|" \
+-             "%|nls-13011-#Information#|" \
+-                 "%|nls-6-#OK#|" ; \
+-           fi; \
+-         else \
+-             /usr/dt/bin/dterror.ds \
+-             "%|nls-2035-#NO Action#|" \
+-             "%|nls-13011-#Information#|" \
+-                 "%|nls-6-#OK#|"; \
+-       fi'
+-}
+-ACTION MailAppendRm
+-{
+-        TYPE            COMMAND
+-        WINDOW_TYPE     NO_STDIO
+-        EXEC_STRING     sh -c ' \
+-        TYPE=`/usr/dt/bin/dttypes -type "%(File)Arg_2%" | \
+-        grep \" is of type \" | sed /".* is of type "/s///`; \
+-        if [ \$TYPE = "DTMAIL_FILE" ]; then \
+-        cat "%(File)Arg_2%" >> "%(File)Arg_1%"; \
+-        rm "%(File)Arg_2%" ; \
+-        else \
+-        /usr/dt/bin/dterror.ds \
+-        "%|nls-2035-#The datatype#|" \
+-        "%|nls-13011-#Error#|" \
+-        "%|nls-6-#OK#|" ;  \
+-        fi'
+-}
+-
+-
+-#
+-# The following action does not work.  When dtmail exits, an error
+-# dialog is posted.
+-#
+-ACTION Compose
+-{
+-    LABEL           %|nls-17002-Compose|
+-    ARG_TYPE        *
+-    ARG_COUNT       0
+-    TYPE            COMMAND
+-    WINDOW_TYPE     NO_STDIO
+-    EXEC_STRING	    /usr/dt/bin/dtmail -c
+-}
+-ACTION Compose
+-{
+-    LABEL           %|nls-17002-Compose|
+-    ARG_TYPE        *
+-    ARG_COUNT       >0
+-    TYPE            COMMAND
+-    WINDOW_TYPE     NO_STDIO
+-    EXEC_STRING	    /usr/dt/bin/dtmail -a %Args%
+-}
+-
+-ACTION ComposeOrOpen
+-{
+-        LABEL           %|nls-1-Open|
+-        ARG_TYPE        DTMAIL_FILE
+-	ARG_COUNT	>0
+-        TYPE            MAP
+-        MAP_ACTION      Open
+-}
+-ACTION ComposeOrOpen
+-{
+-        LABEL           %|nls-17002-Compose|
+-        ARG_TYPE        *
+-	ARG_COUNT	>0
+-        TYPE            MAP
+-        MAP_ACTION      Compose
+-}
+-
+-ACTION Open
+-{
+-	LABEL			%|nls-1-Open|
+-	ARG_TYPE		DTMAIL_FILE
+-	ARG_COUNT		>0
+-	TYPE			TT_MSG
+-	TT_CLASS		TT_REQUEST
+-	TT_SCOPE		TT_SESSION
+-	TT_OPERATION		Display
+-	TT_FILE			%Arg_1%
+-	TT_ARG0_MODE		TT_IN
+-	TT_ARG0_VTYPE		%Arg_1%
+-	TT_ARG0_REP_TYPE	TT_REP_STRING
+-}
+-
+-ACTION Print
+-{
+-	LABEL			%|nls-2-Print|
+-	ARG_TYPE		DTMAIL_FILE
+-	ARG_COUNT		>0
+-	TYPE			TT_MSG
+-	TT_CLASS		TT_REQUEST
+-	TT_SCOPE		TT_SESSION
+-	TT_OPERATION		Print
+-	TT_FILE			%Arg_1%
+-	TT_ARG0_MODE		TT_IN
+-	TT_ARG0_VTYPE		%Arg_1%
+-	TT_ARG0_REP_TYPE	TT_REP_STRING
+-}
+-########################### EOF ##############################################
+diff --git a/programs/types/dtmail.dt.src b/programs/types/dtmail.dt.src
+new file mode 100644
+index 00000000..5abd3681
+--- /dev/null
++++ b/programs/types/dtmail.dt.src
+@@ -0,0 +1,176 @@
++
++        XCOMM##############################################################################
++XCOMM
++XCOMM     dtmail.dt
++XCOMM
++XCOMM     Action and DataType definitions for the Common Desktop Environment
++XCOMM     (CDE) Mailer Component.
++XCOMM
++XCOMM    (c) Copyright 1993, 1994, 1995 Hewlett-Packard Company
++XCOMM    (c) Copyright 1993, 1994, 1995 International Business Machines Corp.
++XCOMM    (c) Copyright 1993, 1994, 1995 Sun Microsystems, Inc.
++XCOMM    (c) Copyright 1993, 1994, 1995 Novell, Inc.
++XCOMM
++XCOMM    $TOG: dtmail.dt /main/11 1998/11/02 10:53:40 mgreess $
++XCOMM    @(#)dtmail.dt	1.32 10 Aug 1994
++XCOMM##############################################################################
++set DtDbVersion=1.0
++
++XCOMM##############################################################################
++XCOMM
++%|nls-10-#\# WARNING:...#|
++XCOMM
++XCOMM##############################################################################
++
++XCOMM##################################################################
++XCOMM
++%|nls-11-#\# Data Attributes#|
++XCOMM
++XCOMM##################################################################
++DATA_ATTRIBUTES DTMAIL_FILE
++{
++	ACTIONS		Open,Compose
++	ICON	        DtMail
++        IS_TEXT		true
++ 	MOVE_TO_ACTION	MailAppendRm
++	COPY_TO_ACTION	MailAppend
++	MEDIA		RFC_822_MESSAGE
++        MIME_TYPE	message/rfc822
++        SUNV3_TYPE      mail-message
++	DESCRIPTION	%|nls-17001-#A DTMAIL_FILE ...#|
++	TYPE_LABEL      %|nls-31104-#DTMAIL_FILE#|
++}
++DATA_CRITERIA DTMAIL_FILE1
++{
++	DATA_ATTRIBUTES_NAME	DTMAIL_FILE
++	CONTENT		64 string CDE-Mail-Application-MailBox-File
++	MODE		f&!x
++}
++DATA_CRITERIA DTMAIL_FILE2
++{
++	DATA_ATTRIBUTES_NAME	DTMAIL_FILE
++	CONTENT		0 string From 
++	MODE		f&!x
++}
++ACTION MailAppend
++{
++	TYPE		COMMAND
++        ARG_COUNT       2
++	WINDOW_TYPE	NO_STDIO
++        EXEC_STRING     sh -c ' \
++         if [ "%(File)Arg_2%" !=  "%(File)Arg_1%" ];\
++          then \
++             XCOMM check if the source is DTMAIL_FILE ;\
++             XCOMM we only accept DTMAIL_FILE as drag source ;\
++             IS_DTMAIL=`CDE_INSTALLATION_TOP/bin/dttypes -type "%(File)Arg_2%"|grep DTMAIL_FILE`;\
++             if  [ -n "\$IS_DTMAIL" ]; then \
++               ERROR=`cat "%(File)Arg_2%" >> "%(File)Arg_1%" \
++                   2>/tmp/dtmail.\$\$ || cat /tmp/dtmail.\$\$`; \
++               [ -f /tmp/dtmail.\$\$ ] && /bin/rm -f /tmp/dtmail.\$\$; \
++               if [ -n "\$ERROR" ]; then \
++                 CDE_INSTALLATION_TOP/bin/dterror.ds \
++                  "\$ERROR" "%|nls-13011-#Information#|" \
++                  "%|nls-6-#OK#|"; \
++               fi; \
++            else  \
++             CDE_INSTALLATION_TOP/bin/dterror.ds \
++             "%|nls-2035-#NO Action#|" \
++             "%|nls-13011-#Information#|" \
++                 "%|nls-6-#OK#|" ; \
++           fi; \
++         else \
++             CDE_INSTALLATION_TOP/bin/dterror.ds \
++             "%|nls-2035-#NO Action#|" \
++             "%|nls-13011-#Information#|" \
++                 "%|nls-6-#OK#|"; \
++       fi'
++}
++ACTION MailAppendRm
++{
++        TYPE            COMMAND
++        WINDOW_TYPE     NO_STDIO
++        EXEC_STRING     sh -c ' \
++        TYPE=`CDE_INSTALLATION_TOP/bin/dttypes -type "%(File)Arg_2%" | \
++        grep \" is of type \" | sed /".* is of type "/s///`; \
++        if [ \$TYPE = "DTMAIL_FILE" ]; then \
++        cat "%(File)Arg_2%" >> "%(File)Arg_1%"; \
++        rm "%(File)Arg_2%" ; \
++        else \
++        CDE_INSTALLATION_TOP/bin/dterror.ds \
++        "%|nls-2035-#The datatype#|" \
++        "%|nls-13011-#Error#|" \
++        "%|nls-6-#OK#|" ;  \
++        fi'
++}
++
++
++XCOMM
++XCOMM The following action does not work.  When dtmail exits, an error
++XCOMM dialog is posted.
++XCOMM
++ACTION Compose
++{
++    LABEL           %|nls-17002-Compose|
++    ARG_TYPE        *
++    ARG_COUNT       0
++    TYPE            COMMAND
++    WINDOW_TYPE     NO_STDIO
++    EXEC_STRING	    CDE_INSTALLATION_TOP/bin/dtmail -c
++}
++ACTION Compose
++{
++    LABEL           %|nls-17002-Compose|
++    ARG_TYPE        *
++    ARG_COUNT       >0
++    TYPE            COMMAND
++    WINDOW_TYPE     NO_STDIO
++    EXEC_STRING	    CDE_INSTALLATION_TOP/bin/dtmail -a %Args%
++}
++
++ACTION ComposeOrOpen
++{
++        LABEL           %|nls-1-Open|
++        ARG_TYPE        DTMAIL_FILE
++	ARG_COUNT	>0
++        TYPE            MAP
++        MAP_ACTION      Open
++}
++ACTION ComposeOrOpen
++{
++        LABEL           %|nls-17002-Compose|
++        ARG_TYPE        *
++	ARG_COUNT	>0
++        TYPE            MAP
++        MAP_ACTION      Compose
++}
++
++ACTION Open
++{
++	LABEL			%|nls-1-Open|
++	ARG_TYPE		DTMAIL_FILE
++	ARG_COUNT		>0
++	TYPE			TT_MSG
++	TT_CLASS		TT_REQUEST
++	TT_SCOPE		TT_SESSION
++	TT_OPERATION		Display
++	TT_FILE			%Arg_1%
++	TT_ARG0_MODE		TT_IN
++	TT_ARG0_VTYPE		%Arg_1%
++	TT_ARG0_REP_TYPE	TT_REP_STRING
++}
++
++ACTION Print
++{
++	LABEL			%|nls-2-Print|
++	ARG_TYPE		DTMAIL_FILE
++	ARG_COUNT		>0
++	TYPE			TT_MSG
++	TT_CLASS		TT_REQUEST
++	TT_SCOPE		TT_SESSION
++	TT_OPERATION		Print
++	TT_FILE			%Arg_1%
++	TT_ARG0_MODE		TT_IN
++	TT_ARG0_VTYPE		%Arg_1%
++	TT_ARG0_REP_TYPE	TT_REP_STRING
++}
++XCOMM########################## EOF ##############################################

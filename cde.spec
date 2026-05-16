@@ -38,18 +38,23 @@ Patch1:         0002-include-config-h-stub-for-motif.patch
 # overridable via --with-cde-{config,state,libexec,data}-dir flags.
 # Required to put /etc/cde and /var/lib/cde in proper FHS locations.
 Patch2:         0003-configure-make-cde-paths-overridable.patch
-# Phase 2: convert ~78 raw "/usr/dt/...", "/etc/dt/...", "/var/dt/..." string
-# literals in 31 source files to use the CDE_*_TOP macros from Patch2 so the
-# packager's --with-cde-* overrides actually flow into compiled binaries.
+# Convert raw "/usr/dt/...", "/etc/dt/...", "/var/dt/..." string literals
+# in C/C++ source to CDE_*_TOP macros so the packager's --with-cde-*
+# overrides actually flow into compiled binaries.
 Patch3:         0004-cleanup-cc-literals-use-cde-macros.patch
-# Phase 3: equivalent cleanup for the .src files that go through tradcpp at
-# build time (programs/types/*.dt.src, programs/dtlogin/config/*.src, etc.).
+# Equivalent cleanup for the .src files that go through tradcpp at build
+# time (programs/types/*.dt.src, programs/dtlogin/config/*.src, etc.).
 Patch4:         0005-cleanup-src-files-use-cde-macros.patch
-# Phase 4: convert contrib/ templates (cde.desktop, dtlogin.service, xinetd
+# Convert contrib/ templates (cde.desktop, dtlogin.service, xinetd
 # snippets, OS rc scripts, desktop2dt) to autoconf .in files.
 Patch5:         0006-contrib-convert-to-autoconf-in-files.patch
-# Phase 5: util/check-fhs.sh validation gate.
+# util/check-fhs.sh validation gate that grep-checks an installed tree
+# for surviving /usr/dt, /etc/dt, /var/dt literals.
 Patch6:         0007-util-add-check-fhs-validation.patch
+# Split CDE_DATA_TOP from CDE_INSTALLATION_TOP so packagers can place
+# data under /usr/share/cde instead of polluting /usr root; also rename
+# programs/types/dt{mail,cm}.dt to .src so they get tradcpp'd.
+Patch7:         0008-split-data-top-and-finish-dt-conversion.patch
 
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc

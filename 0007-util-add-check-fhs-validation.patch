@@ -1,16 +1,14 @@
 ---
 diff --git a/util/check-fhs.sh b/util/check-fhs.sh
 new file mode 100755
-index 000000000..e1761ce40
 --- /dev/null
 +++ b/util/check-fhs.sh
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,79 @@
 +#!/bin/sh
 +#
 +# check-fhs.sh - verify a CDE install tree is free of hardcoded paths.
 +#
-+# After Phases 1-4 of the FHS-compliance refactor, building CDE with
-+# packager-supplied paths should produce an install tree where no file
++# Building CDE with packager-supplied paths should produce an install tree where no file
 +# contains a literal "/usr/dt", "/etc/dt", or "/var/dt" string -- all
 +# such references should expand to whatever the packager passed via
 +# --prefix, --with-cde-config-dir, --with-cde-state-dir, etc.
