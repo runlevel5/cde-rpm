@@ -60,6 +60,12 @@ Patch8:         0009-dt-disable-motif-color-object.patch
 # backdrops/palettes so the install layout matches the compiled-in
 # DT_BACKDROPSEARCHPATH/DTINFOLIBSEARCHPATH probes.
 Patch9:         0010-fhs-finish-dtinfo-and-data-dirs.patch
+# dtinfo ToolTalk ptypes hardcode legacy /usr/dt paths in their
+# start-string. These strings are baked into the compiled types.xdr
+# at build time, so configure flags do NOT redirect them. Without
+# this patch DtInfo_LoadInfoLib comes back TT_ERR_PTYPE_START and
+# dtinfo never opens from any desktop launch path.
+Patch10:        0011-tttypes-fhs-dtinfo-ptype-paths.patch
 
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc
@@ -234,8 +240,10 @@ export LDFLAGS="%{?build_ldflags} -Wl,-z,notext"
     --enable-french \
     --enable-spanish \
     --enable-italian \
-    --enable-japanese \
-    --enable-docs
+    --enable-japanese
+# Note: do NOT pass --enable-docs. configure.ac's AC_ARG_ENABLE has both
+# action-if-given branches set disable_docs=yes, so passing either flag
+# disables docs. The default (no flag) sets BUILD_DOCS=true.
 
 %make_build
 
@@ -271,6 +279,13 @@ rm -f %{buildroot}/usr/CONTRIBUTORS \
       %{buildroot}/usr/COPYING \
       %{buildroot}/usr/HISTORY \
       %{buildroot}/usr/README.md
+
+# cde/doc/Makefile.am's install-data-hook creates /usr/man -> /usr/share/man
+# (a relic of the /usr/dt layout where the symlink mapped /usr/dt/man into
+# /usr/dt/share/man). Under FHS the destination is already /usr/share/man,
+# so the symlink is pure pollution at /usr/man and confuses Fedora's
+# brp-compress (it crawls into it and bails on permission errors).
+rm -f %{buildroot}/usr/man
 
 # Some .dt files embed shell commands inside sh -c '...' single quotes.
 # tradcpp doesn't expand macros inside those quotes (it respects shell
@@ -386,6 +401,14 @@ fi
 %attr(4755, root, root) %{_bindir}/dtappgather
 # Splash-screen content displayed by dthello at session login.
 /usr/copyright
+# CDE man pages (dt*, tt*, dtinfo, dtdocbook, etc.) — installed by
+# cde/doc/<LANG>/man/ when the doc subtree is built.
+%{_mandir}/man1/*
+%{_mandir}/man3/*
+%{_mandir}/man4/*
+%{_mandir}/man5/*
+%{_mandir}/man6/*
+%{_mandir}/man1m/*
 %config(noreplace) %{_sysconfdir}/cde/Xsession
 %dir %{_libdir}/cde
 %{_libdir}/cde/dtdocbook
@@ -397,8 +420,14 @@ fi
 %dir %{_datadir}/cde
 %{_datadir}/cde/app-defaults
 %{_datadir}/cde/appconfig
+%{_datadir}/cde/backdrops
 %{_datadir}/cde/dtdocbook
 %{_datadir}/cde/fontaliases
+%{_datadir}/cde/infolib
+%{_datadir}/cde/palettes
+# /usr/share/cde/share/{backdrops,palettes}/desc.<LANG> -- description files
+# from a separate Makefile; the actual .pm/.bm and .dp data lives under the
+# top-level backdrops/ and palettes/ dirs above.
 %{_datadir}/cde/share
 %dir %{_datadir}/cde/lib
 %{_datadir}/cde/lib/nls
@@ -423,16 +452,6 @@ fi
 %exclude %{_datadir}/cde/lib/nls/msg/es_ES.UTF-8
 %exclude %{_datadir}/cde/lib/nls/msg/it_IT.UTF-8
 %exclude %{_datadir}/cde/lib/nls/msg/ja_JP.UTF-8
-%exclude %{_datadir}/cde/backdrops/desc.de_DE.UTF-8
-%exclude %{_datadir}/cde/backdrops/desc.fr_FR.UTF-8
-%exclude %{_datadir}/cde/backdrops/desc.es_ES.UTF-8
-%exclude %{_datadir}/cde/backdrops/desc.it_IT.UTF-8
-%exclude %{_datadir}/cde/backdrops/desc.ja_JP.UTF-8
-%exclude %{_datadir}/cde/palettes/desc.de_DE.UTF-8
-%exclude %{_datadir}/cde/palettes/desc.fr_FR.UTF-8
-%exclude %{_datadir}/cde/palettes/desc.es_ES.UTF-8
-%exclude %{_datadir}/cde/palettes/desc.it_IT.UTF-8
-%exclude %{_datadir}/cde/palettes/desc.ja_JP.UTF-8
 # Config under /etc/cde
 %dir %{_sysconfdir}/cde
 %config(noreplace) %{_sysconfdir}/cde/config

@@ -1,45 +1,36 @@
-From: CDE packaging <packaging@cdesktopenv>
-Subject: Dt: disable Motif color object globally for CDE clients
+From: Trung Le <trung.le@ruby-journal.com>
+Subject: dtsession: disable Motif color object inside dtsession itself
 
 Modern Motif (2.3.x as shipped by Fedora) calls XConvertSelection on
 _MOTIF_DEFAULT_COLORS from inside the Initialize method of widgets that
-pull in the XmDisplay color object. The desktop color server (dtsession)
-owns that selection.
+pull in the XmDisplay color object. For every CDE client that is fine:
+the request is answered by the color server, which is dtsession.
 
-Inside dtsession itself the request deadlocks: the call happens before the
-main event loop starts, and dtsession cannot reply to its own selection
-request. In every other CDE client the request only incurs a libXt
-selection timeout per widget (default ~5s), but front-panel-heavy clients
-(dtwm, dtfile, dtmail, dtcm) initialise dozens of widgets, so logins
-become unbearably slow even when they eventually succeed.
+Inside dtsession itself the request deadlocks: the call happens before
+dtsession's main event loop starts, so dtsession cannot reply to its
+own selection request. The visible symptom is dtsession hanging on the
+loading screen right after login, never spawning dtwm. Confirmed via a
+gdb stack trace showing dtsession blocked in _XmColorObjCreate ->
+XtAppCreateShell -> Initialize -> XtAppProcessEvent -> poll().
 
-Setting *useColorObj:False in the Dt common app-defaults (every CDE Motif
-client does `# include "Dt"`) skips the color object lookup entirely.
-This is safe because dtsession's color server already writes the palette
-foreground/background to the X resource database via _DtAddToResource;
-Motif still reads correct colors.
+Scoping the override to `Dtsession*useColorObj` keeps the color server
+functional for every other Motif client. (An earlier draft set the
+resource globally in Dt.ad, but that broke dtstyle's Color panel,
+which explicitly checks useColorObj and refuses to operate when False.)
 
---- a/lib/DtSvc/DtUtil2/Dt.ad
-+++ b/lib/DtSvc/DtUtil2/Dt.ad
-@@ -17,6 +17,20 @@
+--- a/programs/dtsession/Dtsession.src
++++ b/programs/dtsession/Dtsession.src
+@@ -33,3 +33,13 @@ Dtsession*ignoreEnvironment:	DISPLAY,SESSION_MANAGER,AUDIOSERVER
+ !#  screen saver password, etc) for use in a Xinerama configuration.
 
- *foregroundThreshold:	70
-
-+!#
-+!# Disable Motif's per-process color object. Modern Motif (2.3.x as
-+!# shipped by Fedora) calls XConvertSelection on _MOTIF_DEFAULT_COLORS
-+!# from inside widget Initialize. The selection owner is dtsession;
-+!# inside dtsession itself the request deadlocks (the event loop has
-+!# not started yet), and in every other CDE client it incurs a 5-second
-+!# libXt selection timeout per widget, which the front-panel-heavy
-+!# clients (dtwm, dtfile, dtmail) make excruciatingly visible.
-+!#
-+!# CDE writes its palette colors into the X resource database
-+!# (DtAddToResource), so disabling the color object lookup is safe:
-+!# Motif still gets the correct foreground/background from xrdb.
-+!#
-+*useColorObj:		False
+ Dtsession*xineramaPreferredScreen:      0
 +
- !########
- !#
- !#   Help system specific resources
++!# Disable Motif's per-process color object inside dtsession itself.
++!# Modern Motif (2.3.x as shipped by Fedora) issues XConvertSelection
++!# during widget Initialize to consult the color server -- but inside
++!# dtsession, the color server IS dtsession, and the request deadlocks
++!# (the main event loop has not started yet). The visible symptom is
++!# dtsession hanging on the loading screen after login, never spawning
++!# dtwm. Scoping to Dtsession only keeps the color server functional
++!# for every other CDE client.
++Dtsession*useColorObj:	False
