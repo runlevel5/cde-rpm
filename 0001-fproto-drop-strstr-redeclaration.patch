@@ -1,4 +1,4 @@
-From: Trung Le <trung.le@ruby-journal.com>
+From: Trung Lê <8@tle.id.au>
 Subject: dthelp: drop K&R-era strstr() redeclaration
 
 The dthelp pass2/htag2 helper redeclares strstr() with a K&R-era

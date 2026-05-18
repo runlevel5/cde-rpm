@@ -1,4 +1,4 @@
-From: Trung Le <trung.le@ruby-journal.com>
+From: Trung Lê <8@tle.id.au>
 Subject: tttypes: drop /usr/dt from dtinfo ptype start strings
 
 The DtInfo / DtInfoPrint / DtInfo_Start ToolTalk ptypes hardcode the

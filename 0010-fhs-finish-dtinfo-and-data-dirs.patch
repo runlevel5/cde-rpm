@@ -1,4 +1,4 @@
-From: Trung Le <trung.le@ruby-journal.com>
+From: Trung Lê <8@tle.id.au>
 Subject: finish FHS migration for dtinfo and the data-only directories
 
 Patch 0008 did most of the CDE_DATA_TOP split work but missed:

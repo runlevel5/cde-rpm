@@ -1,4 +1,4 @@
-From: Trung Le <trung.le@ruby-journal.com>
+From: Trung Lê <8@tle.id.au>
 Subject: include: add config.h stub forwarding to cde_config.h
 
 Fedora's motif-devel ships private (P-suffix) headers — e.g.

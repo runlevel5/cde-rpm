@@ -1,4 +1,4 @@
-From: Trung Le <trung.le@ruby-journal.com>
+From: Trung Lê <8@tle.id.au>
 Subject: cleanup: replace hardcoded paths in .src files with CDE_*_TOP
  placeholders (Phase 3)
 

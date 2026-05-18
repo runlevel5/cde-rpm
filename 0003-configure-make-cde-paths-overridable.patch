@@ -1,4 +1,4 @@
-From: Trung Le <trung.le@ruby-journal.com>
+From: Trung Lê <8@tle.id.au>
 Subject: configure: make CDE installation roots packager-overridable
 
 Today configure.ac:292-294 hardcodes the three "tops" that CDE uses

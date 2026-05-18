@@ -1,4 +1,4 @@
-From: Trung Le <trung.le@ruby-journal.com>
+From: Trung Lê <8@tle.id.au>
 Subject: dtsession: disable Motif color object inside dtsession itself
 
 Modern Motif (2.3.x as shipped by Fedora) calls XConvertSelection on
