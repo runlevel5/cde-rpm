@@ -1,50 +1,87 @@
 From: Trung Lê <8@tle.id.au>
-Subject: tttypes: drop /usr/dt from dtinfo ptype start strings
+Subject: tttypes: route dtinfo ptype start strings through CDE_* macros
 
 The DtInfo / DtInfoPrint / DtInfo_Start ToolTalk ptypes hardcode the
-legacy /usr/dt/infolib/etc/dtinfo_start and /usr/dt/bin/dtinfo paths.
-These strings end up baked into the compiled types.xdr database that
-ttsession reads, so changing CDE_INSTALLATION_TOP / CDE_DATA_TOP via
-configure does NOT redirect them. On an FHS install the legacy paths
-do not exist, ToolTalk reports
+legacy /usr/dt/infolib/etc/dtinfo_start and /usr/dt/bin/dtinfo paths
+in their start strings. These strings end up baked into the compiled
+types.xdr database that ttsession reads, so changing CDE_INSTALLATION_TOP
+/ CDE_DATA_TOP via configure does NOT redirect them. On an FHS install
+the legacy paths do not exist, ToolTalk reports
 
     TT_ERR_PTYPE_START -- Attempt to launch instance of ptype failed
 
 when the desktop sends DtInfo_LoadInfoLib, and dtinfo never opens.
 
-Rewrite the start strings to the FHS-correct binaries. The .ptype
-files are not run through tradcpp at build time, so the simplest
-fix is a literal swap. The data dirs match the layout enforced by
-Patch0008 + Patch0010.
+tt_type_comp already runs the .ptype source through cpp internally
+(see lib/tt/bin/tt_type_comp/mp_types_table.C:120-150), and the
+grammar concatenates adjacent string literals
+(mp_types_gram.y:256 `string_lit TT_STRING`). cde_config.h (generated
+by Patch0003 / AC_DEFINE_UNQUOTED) already defines CDE_DATA_TOP and
+CDE_INSTALLATION_TOP as the configured string-literal paths. So the
+fix is:
 
+  - Pass -I$(top_srcdir)/include to tt_type_comp so the ptype cpp
+    pass can resolve <cde_config.h>.
+  - In dtinfo.ptype / dtinfo_start.ptype, #include "cde_config.h" and
+    write the start strings as `start CDE_DATA_TOP "/infolib/..."` —
+    cpp expands the macro to the configured prefix and the grammar
+    concatenates the two adjacent string literals.
+
+This honors the configure-time --with-cde-{data,libexec}-dir overrides
+the same way every other CDE component does, instead of swapping one
+hardcoded path for another.
+
+--- a/programs/tttypes/Makefile.am
++++ b/programs/tttypes/Makefile.am
+@@ -28,6 +28,11 @@ types.xdr: $(LOCALDEPFILES)
+
+ TT_TYPE_COMP = $(top_builddir)/lib/tt/bin/tt_type_comp/tt_type_comp
+
++# Let the dtinfo ptypes pick up CDE_DATA_TOP / CDE_INSTALLATION_TOP from
++# cde_config.h via tt_type_comp's internal cpp pass, so their start
++# strings resolve against the configured --with-cde-* layout.
++TT_CPP_FLAGS = -I$(top_srcdir)/include
++
+ .ptype.done:
+ 	$(RM) $@
+-	TTPATH=. $(TT_TYPE_COMP) -sd user -m $< && touch $@ ; $(RM) .tt_lock
++	TTPATH=. $(TT_TYPE_COMP) $(TT_CPP_FLAGS) -sd user -m $< && touch $@ ; $(RM) .tt_lock
 --- a/programs/tttypes/dtinfo.ptype
 +++ b/programs/tttypes/dtinfo.ptype
-@@ -13,7 +13,7 @@
+@@ -10,10 +10,11 @@
+  * (c) Copyright 1996 Hitachi.
+  */
+
++#include "cde_config.h"
  #include "dtinfo_start.opnums"
 
  ptype DtInfo {
 -       	start 	"/usr/dt/infolib/etc/dtinfo_start";
-+       	start 	"/usr/share/cde/infolib/etc/dtinfo_start";
++       	start 	CDE_DATA_TOP "/infolib/etc/dtinfo_start";
  	handle:
  		session DtInfo_LoadInfoLib (
  				in string action_name,
-@@ -32,7 +32,7 @@ ptype DtInfo {
+@@ -32,7 +33,7 @@ ptype DtInfo {
  }
 
  ptype DtInfoPrint {
 -      start "/usr/dt/bin/dtinfo -print";
-+      start "/usr/bin/dtinfo -print";
++      start CDE_INSTALLATION_TOP "/bin/dtinfo -print";
        handle:
 
        /* print a specified section */
 --- a/programs/tttypes/dtinfo_start.ptype
 +++ b/programs/tttypes/dtinfo_start.ptype
-@@ -13,7 +13,7 @@
+@@ -10,10 +10,11 @@
+  * (c) Copyright 1996 Hitachi.
+  */
+
++#include "cde_config.h"
  #include "dtinfo_start.opnums"
 
  ptype DtInfo_Start {
 -	start 	"/usr/dt/infolib/etc/dtinfo_start";
-+	start 	"/usr/share/cde/infolib/etc/dtinfo_start";
++	start 	CDE_DATA_TOP "/infolib/etc/dtinfo_start";
  	handle:
  		session DtInfo_LoadInfoLib (
  				in string action_name,
