@@ -9,21 +9,33 @@ https://sourceforge.net/projects/cdesktopenv/ (or the git mirror).
 Layout
 ------
 
-    cde.spec                        # main RPM spec (7 subpackages)
+    cde.spec                        # main RPM spec (8 subpackages)
     cde.pam                         # /etc/pam.d/dtlogin
     dtlogin.service                 # systemd unit (display-manager.service alias)
+    rpc.cmsd.service                # systemd unit for the Calendar Manager RPC daemon
     cde.desktop                     # /usr/share/xsessions/ entry
     ld.so.conf-cde.conf             # placeholder ld.so.conf.d hook
     README.Fedora                   # installed in the doc subpackage
     0001-fproto-drop-strstr-redeclaration.patch
     0002-include-config-h-stub-for-motif.patch
+    0003-configure-make-cde-paths-overridable.patch
+    0004-cleanup-cc-literals-use-cde-macros.patch
+    0005-cleanup-src-files-use-cde-macros.patch
+    0006-contrib-convert-to-autoconf-in-files.patch
+    0007-util-add-check-fhs-validation.patch
+    0008-split-data-top-and-finish-dt-conversion.patch
+    0009-dt-disable-motif-color-object.patch
+    0010-fhs-finish-dtinfo-and-data-dirs.patch
+    0011-tttypes-fhs-dtinfo-ptype-paths.patch
     build-srpm.sh                   # SRPM/RPM build driver
 
 Subpackages produced
 --------------------
 
     cde                  -- session, dtlogin, dtwm, all dt* programs
-    cde-libs             -- 11 shared libraries (DtSvc, DtWidget, ...)
+    cde-libs             -- shared libraries (DtSvc, DtWidget, DtHelp,
+                            DtPrint, DtTerm, DtMrm, DtMmdb, DtSearch,
+                            DtXinerama, ToolTalk, CSA)
     cde-devel            -- headers + static libraries
     cde-doc              -- dtinfo infolib (not noarch -- ships dtinfo_start)
     cde-langpack-{de,fr,es,it,ja}
@@ -32,20 +44,39 @@ Subpackages produced
 Filesystem layout
 -----------------
 
-The package follows FHS for the parts users and the toolchain interact
-with directly: binaries in /usr/bin, libraries in /usr/lib64, headers in
-/usr/include, man pages in /usr/share/man, systemd unit in
-/usr/lib/systemd/system, PAM config in /etc/pam.d, xsession entry in
-/usr/share/xsessions.
+The package follows FHS throughout — there is no `/usr/dt` namespace
+anymore. CDE's content is split across the standard Fedora locations
+plus a small set of CDE-owned subdirs under `/usr/share/cde`,
+`/etc/cde`, `/var/lib/cde`, and `/usr/libexec/cde`:
 
-CDE's own runtime data namespace stays under /usr/dt/ (palettes,
-backdrops, types, app-defaults, config, infolib, lib/nls). Around 247
-source files contain hardcoded /usr/dt/<...> paths; relocating that
-content out from /usr/dt would require patching all of them. The
-packaging compromise: install bin/include into FHS locations and let
-CDE's own install hooks create /usr/dt/bin -> /usr/bin and
-/usr/dt/include -> /usr/include compatibility symlinks so the hardcoded
-references continue to resolve. See README.Fedora for details.
+    /usr/bin/dt*                    binaries
+    /usr/bin/Xsession               symlink -> /etc/cde/Xsession
+    /usr/lib64/libDt*.so*           shared libraries
+    /usr/lib64/libtt*.so*           ToolTalk libraries
+    /usr/lib64/{cde,dtksh}/         CDE-internal helpers
+    /usr/libexec/cde/               CDE-internal libexec helpers
+    /usr/include/{Dt,Tt,csa}/       development headers
+    /usr/share/man/man{1,3,4,5,6}/  manual pages
+    /usr/share/cde/                 arch-independent data
+        app-defaults/               X resource defaults per locale
+        appconfig/                  types, icons, help, appmanager
+        backdrops/, palettes/       desktop visuals
+        infolib/                    dtinfo content
+        lib/nls/                    X/Open NLS message catalogues
+        fontaliases/                CDE -> X11 font alias table
+    /etc/cde/
+        Xsession                    per-login bootstrap (the real file)
+        config/                     Xsession.d, dtlogin scripts, sys.dtprofile
+        fontaliases/                same alias table, different fontpath entry
+    /etc/pam.d/{dtlogin,dtsession}  PAM configuration
+    /var/lib/cde/                   runtime state (replaces /var/dt)
+    /var/spool/calendar             rpc.cmsd data, mode 3777 daemon:daemon
+    /usr/lib/systemd/system/{dtlogin,rpc.cmsd}.service
+    /usr/share/xsessions/cde.desktop
+
+The FHS migration is driven by Patches 0003–0008/0010/0011 — the
+upstream source originally hardcodes `/usr/dt`, `/etc/dt`, and
+`/var/dt` throughout. See README.Fedora for the user-facing summary.
 
 Building
 --------
@@ -71,7 +102,11 @@ the source tarball.
 Starting a CDE session
 ----------------------
 
-There are two ways to log into CDE on Fedora.
+There are two ways to log into CDE on Fedora. Before either, make sure
+rpcbind is running (ToolTalk and the calendar daemon need it):
+
+    sudo systemctl enable --now rpcbind.service
+    sudo systemctl enable --now rpc.cmsd.service   # only if you use dtcm
 
 ### Option 1: `startx` from a TTY (no display manager change needed)
 
@@ -79,14 +114,13 @@ Drop in a `~/.xinitrc` that hands control to CDE's session bootstrap:
 
     cat > ~/.xinitrc <<'EOF'
     #!/bin/sh
-    # Launch the Common Desktop Environment session via CDE Xsession bootstrap.
-    exec /usr/bin/Xsession
+    exec /etc/cde/Xsession
     EOF
     chmod +x ~/.xinitrc
 
 If you don't already have one, copy CDE's user profile template:
 
-    cp /usr/dt/config/sys.dtprofile ~/.dtprofile
+    cp /etc/cde/config/sys.dtprofile ~/.dtprofile
 
 Then from a text console:
 
@@ -95,7 +129,7 @@ Then from a text console:
 `Xsession` performs the same bootstrap dtlogin would (sets `LANG`,
 sources `~/.dtprofile`, applies X resources, starts ToolTalk) and then
 execs `dtsession`, the actual session manager. Errors land in
-`~/.xsession-errors` and `/var/dt/Xerrors`.
+`~/.xsession-errors` and `/var/lib/cde/Xerrors`.
 
 ### Option 2: `dtlogin` as the system display manager
 
@@ -108,7 +142,7 @@ This replaces gdm/sddm with CDE's own login screen. Reboot required.
 
 The package installs `/usr/lib/systemd/system/dtlogin.service` aliased
 as `display-manager.service`, so only one display manager can be
-enabled at a time. Logs go to `/var/dt/`.
+enabled at a time. Logs go to `/var/lib/cde/`.
 
 To go back to gdm:
 
@@ -119,18 +153,54 @@ To go back to gdm:
 Patches
 -------
 
-Both patches are needed against modern Fedora and apply on top of
-upstream master:
+All eleven patches apply on top of upstream master. The first two are
+narrow build fixes; the rest implement and finish the FHS migration
+plus a handful of first-boot fixups.
 
-  * **0001** -- removes a K&R-era redeclaration of `strstr()` in
+  * **0001** -- remove a K&R-era redeclaration of `strstr()` in
     `programs/dthelp/parser/pass2/htag2/fproto.h`. Glibc declares
     `strstr` via `_Generic` in `<string.h>` and the redeclaration
     breaks parsing.
-  * **0002** -- adds `include/config.h` that forwards to
+  * **0002** -- add `include/config.h` that forwards to
     `cde_config.h`. Fedora's motif-devel ships private headers
     (`Xm/DisplayP.h` etc.) that do `#ifdef HAVE_CONFIG_H #include
     <config.h>`; CDE compiles with `-DHAVE_CONFIG_H` so Motif's
     include needs a resolvable `config.h` on the search path.
+  * **0003** -- make `CDE_INSTALLATION_TOP` / `CDE_CONFIGURATION_TOP`
+    / `CDE_LOGFILES_TOP` / `CDE_DATA_TOP` / `CDE_LIBEXEC_TOP`
+    overridable via `--with-cde-{data,config,state,libexec}-dir`
+    configure flags.
+  * **0004** -- convert raw `"/usr/dt/..."`, `"/etc/dt/..."`,
+    `"/var/dt/..."` string literals in C/C++ source to the
+    `CDE_*_TOP` macros plumbed through by Patch0003.
+  * **0005** -- equivalent cleanup for the `.src` files that go
+    through `tradcpp` at build time.
+  * **0006** -- convert the `contrib/` templates to autoconf `.in`
+    files so they pick up the same substitutions.
+  * **0007** -- add `util/check-fhs.sh`, a validation gate that
+    greps the build tree for stray hardcoded `/usr/dt|/etc/dt|/var/dt`
+    references.
+  * **0008** -- split `CDE_DATA_TOP` from `CDE_INSTALLATION_TOP`
+    (arch-independent data goes to `/usr/share/cde`, binaries stay
+    under `/usr`) and rename `dt{mail,cm}.dt` to `.src` so they get
+    `tradcpp`-substituted.
+  * **0009** -- set Motif `*useColorObj:False` globally. Without this,
+    dtsession deadlocks on a color-object selection during widget
+    Initialize on Motif 2.3.x; every other CDE client survives but
+    pays a 5 s libXt selection timeout per widget, making logins
+    glacial.
+  * **0010** -- finish the FHS migration for dtinfo and the data-only
+    directories: fix the second `InfoLibSearchPath` copy of `/usr/dt`
+    missed by Patch0008, and drop the `/share/` infix plus legacy
+    compat symlinks from backdrops/palettes so the install layout
+    matches the compiled-in `DT_BACKDROPSEARCHPATH` /
+    `DTINFOLIBSEARCHPATH` probes.
+  * **0011** -- rewrite the dtinfo ToolTalk ptype start-strings, which
+    bake `/usr/dt` paths into the compiled `types.xdr` at build time
+    and aren't reachable from configure flags. Without this,
+    `DtInfo_LoadInfoLib` returns `TT_ERR_PTYPE_START` and dtinfo
+    never opens from any desktop launch path.
 
-Both fixes are good upstream candidates; once merged upstream the
-patches can be dropped.
+Patches 0001–0002 are good upstream candidates and can be dropped once
+merged. Patches 0003–0011 are the FHS conversion and would either need
+to land upstream as a series or stay carried here.
