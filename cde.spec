@@ -66,6 +66,18 @@ Patch9:         0010-fhs-finish-dtinfo-and-data-dirs.patch
 # this patch DtInfo_LoadInfoLib comes back TT_ERR_PTYPE_START and
 # dtinfo never opens from any desktop launch path.
 Patch10:        0011-tttypes-fhs-dtinfo-ptype-paths.patch
+# Plug two Makefile.am misses surfaced by util/check-fhs.sh:
+# lib/DtSvc was missing -DCDE_LOGFILES_TOP (MsgLog.c / DtEncap/nls.c
+# fell back to /var/dt/tmp), and dtspcd had -DCDE_CONFIGURATION_TOP=
+# ${prefix} (a pre-existing upstream typo, pinned the SPC config dir
+# to PREFIX/config instead of honoring --with-cde-config-dir).
+Patch11:        0012-fhs-followup-makefile-defines.patch
+# Application Manager entries (/usr/share/cde/appconfig/appmanager/.../Dtcalc
+# etc.) must be executable for dtfile to treat them as actions. The upstream
+# build copies programs/types/action (mode 0644) into each appmgr file and
+# inherits the 0644 mode; without this dtfile opens them in dtpad instead of
+# launching the action. Patches the appmgr.am template to chmod +x.
+Patch12:        0013-appmgr-make-action-files-executable.patch
 
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc

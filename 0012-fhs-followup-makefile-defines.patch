@@ -1,0 +1,62 @@
+From: Trung Lê <8@tle.id.au>
+Subject: Makefile.am: plug two missed CDE_* macro defines surfaced by check-fhs
+
+Sweep with util/check-fhs.sh (Patch0007) over the post-patch source
+tree turned up two Makefile.am sites where -DCDE_*_TOP flags were
+missing or wrong, causing the legacy fallback paths in headers and
+source to silently fire on FHS builds.
+
+1. lib/DtSvc/Makefile.am: libDtSvc_la_CPPFLAGS already passes
+   CDE_INSTALLATION_TOP, CDE_DATA_TOP and CDE_CONFIGURATION_TOP, but
+   not CDE_LOGFILES_TOP. As a result:
+
+     - lib/DtSvc/DtUtil2/MsgLog.c falls into its
+       `#ifdef CDE_LOGFILES_TOP / #else "/var/dt/tmp"` branch and
+       opens its log/temp files at /var/dt/tmp.
+
+     - lib/DtSvc/DtEncap/nls.c falls into its
+       `#ifndef CDE_LOGFILES_TOP / #define "/var/dt/tmp"` fallback
+       and XeSBTempPath() returns paths under /var/dt/tmp.
+
+   With --with-cde-state-dir=/var/lib/cde this is plain wrong; both
+   files should track CDE_LOGFILES_TOP.
+
+2. programs/dtspcd/Makefile.am: dtspcd_CFLAGS sets
+       -DCDE_CONFIGURATION_TOP=\"${prefix}\"
+   which is wrong on every layout, not just FHS -- it pins
+   dtspcd's config-dir notion to whatever --prefix is (/usr on
+   Fedora, /usr/dt on a Solaris-style build) instead of honoring
+   --with-cde-config-dir. Combined with
+       include/SPC/spcP.h: SPCD_ENV_CONFIG_DIRECTORY = CDE_CONFIGURATION_TOP "/config"
+   dtspcd ends up probing /usr/config/dtspcdenv instead of
+   /etc/cde/config/dtspcdenv. (lib/DtSvc/DtEncap/spc-env.c uses the
+   same macro but gets the correct value via lib/DtSvc/Makefile.am;
+   only dtspcd itself was broken.)
+
+   Looks like a pre-existing upstream typo predating
+   --with-cde-config-dir; Patch0008 already touched this file (to
+   add CDE_DATA_TOP) without noticing the ${prefix} substitution.
+
+--- a/lib/DtSvc/Makefile.am
++++ b/lib/DtSvc/Makefile.am
+@@ -14,7 +14,8 @@
+ libDtSvc_la_CPPFLAGS = -I./include -DMULTIBYTE -DNLS16 -I../include \
+ 	@DT_INCDIR@ -DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
+ 	-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+-       -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\"
++       -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
++       -DCDE_LOGFILES_TOP=\"$(CDE_LOGFILES_TOP)\"
+
+ if SOLARIS
+ libDtSvc_la_CPPFLAGS += -DNO_REGCOMP
+--- a/programs/dtspcd/Makefile.am
++++ b/programs/dtspcd/Makefile.am
+@@ -2,7 +2,7 @@ MAITAINERCLEANFILES = Makefile.in
+
+ bin_PROGRAMS = dtspcd
+
+-dtspcd_CFLAGS = -DCDE_CONFIGURATION_TOP=\"${prefix}\" \
++dtspcd_CFLAGS = -DCDE_CONFIGURATION_TOP=\"$(CDE_CONFIGURATION_TOP)\" \
+ 		-DCDE_INSTALLATION_TOP=\"$(CDE_INSTALLATION_TOP)\" \
+ 		-DCDE_DATA_TOP=\"$(CDE_DATA_TOP)\" \
+ 		$(DT_INCDIR)

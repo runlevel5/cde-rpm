@@ -1,0 +1,46 @@
+From: Trung Lê <8@tle.id.au>
+Subject: appmgr: install Application Manager action files as executable
+
+CDE's File Manager (dtfile) treats a file under
+$(CDE_DATA_TOP)/appconfig/appmanager/$(LANG)/<group>/<Name> as an
+action -- i.e. double-click runs the matching ACTION from the .dt
+database -- only when:
+
+  1. The file name matches an ACTION definition in *.dt, and
+  2. The file has the execute bit set.
+
+The action file itself documents this in its own contents:
+
+    # If this file is executable and the name of the file matches an
+    # entry in the action database (*.dt files), the CDE File Manager
+    # will treat this file as an action.
+
+Today the upstream source file programs/types/action is shipped with
+mode 0644. The appmgr.am template builds every Application Manager
+entry by $(CP)-ing this template into Desktop_Apps/Dtcalc and friends,
+which preserves the 0644 mode into the build tree. Whether the
+subsequent `make install` ends up at 0755 then depends on the
+toolchain (GNU install -c without -m gives 0755, but if automake
+falls back to install-sh -c which preserves source mode, or the
+packaging environment chmod's the buildroot, the 0644 leaks through
+to the installed file -- as seen on Fedora's rpmbuild).
+
+The visible symptom: clicking Dtcalc in the Application Manager
+opens the action file in dtpad as text instead of launching dtcalc.
+Same for every other entry.
+
+Fix at the build rule: chmod +x after the copy so the BUILT_SOURCES
+have the execute bit set, and install -c then carries that through
+regardless of which install variant is used.
+
+--- a/programs/localized/templates/appmgr.am
++++ b/programs/localized/templates/appmgr.am
+@@ -87,5 +87,7 @@ appmgr_allfiles = $(desktop_apps_SCRIPTS) $(graphics_SCRIPTS)		\
+ BUILT_SOURCES = $(appmgr_allfiles)
+ CLEANFILES = $(BUILT_SOURCES)
+
++# dtfile only treats these as actions if they're executable -- see the
++# self-documenting comment inside the programs/types/action template.
+ $(appmgr_allfiles): $(ACTION)
+-	$(CP) $(ACTION) $@ || $(RM) $@
++	$(CP) $(ACTION) $@ && chmod +x $@ || { $(RM) $@; exit 1; }

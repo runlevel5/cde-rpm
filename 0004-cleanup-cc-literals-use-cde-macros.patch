@@ -447,7 +447,7 @@ index 305c50c7b..f8961aa0d 100644
  	      queue->Name());
        if (stat(filename, &statbuff) < 0 || statbuff.st_size == 0)
           create_file = true;
-@@ -288,7 +288,7 @@ char *DtPrinterIcon::CreateActionFile()
+@@ -288,9 +288,9 @@ char *DtPrinterIcon::CreateActionFile()
        snprintf(buf, MAXPATHLEN, "%s/.dt/types/%s.dt", homeDir, queue->Name());
        if (stat(buf, &statbuff) < 0 || statbuff.st_size == 0)
         {
@@ -457,6 +457,8 @@ index 305c50c7b..f8961aa0d 100644
  	  {
 -            snprintf(buf, MAXPATHLEN, "/bin/cp /etc/dt/appconfig/types/%s/%s.dt %s/.dt/types",
 +            snprintf(buf, MAXPATHLEN, "/bin/cp " CDE_CONFIGURATION_TOP "/appconfig/types/%s/%s.dt %s/.dt/types",
+ 		    lang, queue->Name(), homeDir);
+ 	    system(buf);
 diff --git a/programs/dtprintinfo/libUI/MotifUI/MotifUI.C b/programs/dtprintinfo/libUI/MotifUI/MotifUI.C
 index c66092006..77c1ebe62 100644
 --- a/programs/dtprintinfo/libUI/MotifUI/MotifUI.C

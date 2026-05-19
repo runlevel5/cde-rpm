@@ -27,6 +27,8 @@ Layout
     0009-dt-disable-motif-color-object.patch
     0010-fhs-finish-dtinfo-and-data-dirs.patch
     0011-tttypes-fhs-dtinfo-ptype-paths.patch
+    0012-fhs-followup-makefile-defines.patch
+    0013-appmgr-make-action-files-executable.patch
     build-srpm.sh                   # SRPM/RPM build driver
 
 Subpackages produced
@@ -153,7 +155,7 @@ To go back to gdm:
 Patches
 -------
 
-All eleven patches apply on top of upstream master. The first two are
+All thirteen patches apply on top of upstream master. The first two are
 narrow build fixes; the rest implement and finish the FHS migration
 plus a handful of first-boot fixups.
 
@@ -200,7 +202,24 @@ plus a handful of first-boot fixups.
     and aren't reachable from configure flags. Without this,
     `DtInfo_LoadInfoLib` returns `TT_ERR_PTYPE_START` and dtinfo
     never opens from any desktop launch path.
+  * **0012** -- plug two `Makefile.am` misses surfaced by a sweep with
+    `util/check-fhs.sh`: `lib/DtSvc/Makefile.am` was missing
+    `-DCDE_LOGFILES_TOP=` so `DtUtil2/MsgLog.c` and `DtEncap/nls.c`
+    fell through to their `"/var/dt/tmp"` fallbacks; and
+    `programs/dtspcd/Makefile.am` set
+    `-DCDE_CONFIGURATION_TOP="${prefix}"` (a pre-existing upstream
+    typo) which pinned dtspcd's SPC config dir to `PREFIX/config`
+    instead of honoring `--with-cde-config-dir`.
+
+  * **0013** -- make Application Manager action files executable. The
+    upstream build copies `programs/types/action` (mode 0644) into
+    each appmgr entry (e.g. `Desktop_Apps/Dtcalc`), and dtfile only
+    treats the file as an action if the execute bit is set; without
+    this, double-click opens it in dtpad instead of launching the
+    action. Adds `chmod +x` to the build rule in
+    `programs/localized/templates/appmgr.am`.
 
 Patches 0001–0002 are good upstream candidates and can be dropped once
-merged. Patches 0003–0011 are the FHS conversion and would either need
-to land upstream as a series or stay carried here.
+merged. Patches 0003–0013 are the FHS conversion and a handful of
+build-time fixups; they would either need to land upstream as a
+series or stay carried here.
