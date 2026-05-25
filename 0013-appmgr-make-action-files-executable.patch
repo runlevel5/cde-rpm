@@ -15,24 +15,43 @@ The action file itself documents this in its own contents:
     # entry in the action database (*.dt files), the CDE File Manager
     # will treat this file as an action.
 
-Today the upstream source file programs/types/action is shipped with
-mode 0644. The appmgr.am template builds every Application Manager
-entry by $(CP)-ing this template into Desktop_Apps/Dtcalc and friends,
-which preserves the 0644 mode into the build tree. Whether the
-subsequent `make install` ends up at 0755 then depends on the
-toolchain (GNU install -c without -m gives 0755, but if automake
-falls back to install-sh -c which preserves source mode, or the
-packaging environment chmod's the buildroot, the 0644 leaks through
-to the installed file -- as seen on Fedora's rpmbuild).
+Today the upstream source template programs/types/action is shipped
+with mode 0644 and the appmgr.am rule cp's it verbatim into each
+Application Manager entry (Desktop_Apps/Dtcalc etc.). Two problems
+appear on Fedora:
 
-The visible symptom: clicking Dtcalc in the Application Manager
-opens the action file in dtpad as text instead of launching dtcalc.
-Same for every other entry.
+  1. The cp preserves the 0644 source mode, so even before any
+     packaging step the built-tree entries lack the exec bit.
 
-Fix at the build rule: chmod +x after the copy so the BUILT_SOURCES
-have the execute bit set, and install -c then carries that through
-regardless of which install variant is used.
+  2. Fedora's rpm pipeline runs brp-mangle-shebangs after %install,
+     which scans every executable file: if the first line is not a
+     `#!` shebang, the script strips the exec bit and warns. The
+     action template starts with `# ...` (regular comment, no `!`),
+     so even when something earlier chmods +x, brp-mangle-shebangs
+     reverses it before the cpio payload is built. The visible
+     symptom: clicking Dtcalc in the Application Manager opens the
+     action file in dtpad as text instead of launching dtcalc.
 
+Two-part fix:
+
+  - Prepend `#!/bin/sh` to programs/types/action so brp-mangle-shebangs
+    accepts the file as a shell script and keeps the exec bit. dtfile
+    never execs the action file body (it only consults the file name
+    against the action DB), so the shebang is cosmetic for CDE's own
+    use; if a user does run the file directly it harmlessly prints
+    the final `echo "..."` line.
+
+  - In programs/localized/templates/appmgr.am, chmod +x after the
+    $(CP) so the BUILT_SOURCES entries are executable in the build
+    tree. install then carries the bit through to DESTDIR.
+
+--- a/programs/types/action
++++ b/programs/types/action
+@@ -1,3 +1,4 @@
++#!/bin/sh
+ %|nls-1-#This file represents a ...#|
+ %|nls-2-##|
+ %|nls-3-##|
 --- a/programs/localized/templates/appmgr.am
 +++ b/programs/localized/templates/appmgr.am
 @@ -87,5 +87,7 @@ appmgr_allfiles = $(desktop_apps_SCRIPTS) $(graphics_SCRIPTS)		\

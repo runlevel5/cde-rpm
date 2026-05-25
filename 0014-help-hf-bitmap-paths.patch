@@ -1,0 +1,178 @@
+From: Trung Lê <8@tle.id.au>
+Subject: doc: route help-family bitmap paths through CDE_DATA_TOP
+
+The .hf (help family) files at the top of $(CDE_DATA_TOP)/appconfig/help/<LANG>/
+have an absolute *.bitmap: pointer to the cdelogo.pm graphic dthelpview shows
+beside the "Common Desktop Environment" and "Overview and Basic Desktop Skills"
+section headers in the Help Manager's main window.
+
+The 12 .hf.in templates (Desktop.hf.in + DesktopIntro.hf.in across 6 locales)
+substitute the path with @prefix@:
+
+    *.bitmap:       @prefix@/appconfig/help/en_US.UTF-8/graphics/cdelogo.pm
+
+With --prefix=/usr (FHS) this expands to /usr/appconfig/help/.../cdelogo.pm,
+which does not exist; the install actually puts the graphic at
+$(CDE_DATA_TOP)/appconfig/help/.../cdelogo.pm (i.e. /usr/share/cde/appconfig/
+help/.../ on Fedora). dthelpview can't resolve the bitmap and renders a
+"Missing Graphics" placeholder.
+
+Replace @prefix@ with @CDE_DATA_TOP@ so the path tracks --with-cde-data-dir
+the same way every other data-tree path does after Patch0008.
+
+diff --git a/doc/de_DE.UTF-8/help/common/Desktop.hf.in b/doc/de_DE.UTF-8/help/common/Desktop.hf.in
+index e374c251f..bf73ff06f 100644
+--- a/doc/de_DE.UTF-8/help/common/Desktop.hf.in
++++ b/doc/de_DE.UTF-8/help/common/Desktop.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Common Desktop Environment
+-*.bitmap:       @prefix@/appconfig/help/de_DE.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/de_DE.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Überblick und Grundkenntnisse für das Desktop \
+  * Hilfe für Hilfe \
+  * Anwendungsmanager \
+diff --git a/doc/de_DE.UTF-8/help/common/DesktopIntro.hf.in b/doc/de_DE.UTF-8/help/common/DesktopIntro.hf.in
+index 8a33cdaa3..8c3418610 100644
+--- a/doc/de_DE.UTF-8/help/common/DesktopIntro.hf.in
++++ b/doc/de_DE.UTF-8/help/common/DesktopIntro.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Überblick und Grundkenntnisse für das Desktop
+-*.bitmap:       @prefix@/appconfig/help/de_DE.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/de_DE.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Überblick und Grundkenntnisse für das \
+                 Common Desktop Environment.
+ 
+diff --git a/doc/en_US.UTF-8/help/common/Desktop.hf.in b/doc/en_US.UTF-8/help/common/Desktop.hf.in
+index 307618405..a3e4da057 100644
+--- a/doc/en_US.UTF-8/help/common/Desktop.hf.in
++++ b/doc/en_US.UTF-8/help/common/Desktop.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Common Desktop Environment
+-*.bitmap:       @prefix@/appconfig/help/en_US.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/en_US.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Overview and Basic Desktop Skills \
+  * Using Help \
+  * Application Builder \
+diff --git a/doc/en_US.UTF-8/help/common/DesktopIntro.hf.in b/doc/en_US.UTF-8/help/common/DesktopIntro.hf.in
+index db46e4049..6977f4200 100644
+--- a/doc/en_US.UTF-8/help/common/DesktopIntro.hf.in
++++ b/doc/en_US.UTF-8/help/common/DesktopIntro.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Overview and Basic Desktop Skills
+-*.bitmap:       @prefix@/appconfig/help/en_US.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/en_US.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Overview and Basic Desktop Skills for the \
+                 Common Desktop Environment.
+ 
+diff --git a/doc/es_ES.UTF-8/help/common/Desktop.hf.in b/doc/es_ES.UTF-8/help/common/Desktop.hf.in
+index ba682b3c4..54fa1e817 100644
+--- a/doc/es_ES.UTF-8/help/common/Desktop.hf.in
++++ b/doc/es_ES.UTF-8/help/common/Desktop.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Common Desktop Environment
+-*.bitmap:       @prefix@/appconfig/help/es_ES.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/es_ES.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Información general y Conocimientos básicos del escritorio \
+  * Uso de la Ayuda \
+  * El Gestor de aplicaciones \
+diff --git a/doc/es_ES.UTF-8/help/common/DesktopIntro.hf.in b/doc/es_ES.UTF-8/help/common/DesktopIntro.hf.in
+index 4da186857..d9edb5b28 100644
+--- a/doc/es_ES.UTF-8/help/common/DesktopIntro.hf.in
++++ b/doc/es_ES.UTF-8/help/common/DesktopIntro.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Información general y Conocimientos básicos del escritorio
+-*.bitmap:       @prefix@/appconfig/help/es_ES.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/es_ES.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Información general y Conocimientos básicos del \
+                 Common Desktop Environment.
+ 
+diff --git a/doc/fr_FR.UTF-8/help/common/Desktop.hf.in b/doc/fr_FR.UTF-8/help/common/Desktop.hf.in
+index b4cc70bfd..4b0d9369b 100644
+--- a/doc/fr_FR.UTF-8/help/common/Desktop.hf.in
++++ b/doc/fr_FR.UTF-8/help/common/Desktop.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Bureau CDE
+-*.bitmap:       @prefix@/appconfig/help/fr_FR.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/fr_FR.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Généralités et Connaissances de base du Bureau \
+  * Aide sur l'aide \
+  * Gestionnaire d'applications \
+diff --git a/doc/fr_FR.UTF-8/help/common/DesktopIntro.hf.in b/doc/fr_FR.UTF-8/help/common/DesktopIntro.hf.in
+index 713855b67..776af54ce 100644
+--- a/doc/fr_FR.UTF-8/help/common/DesktopIntro.hf.in
++++ b/doc/fr_FR.UTF-8/help/common/DesktopIntro.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Généralités et Connaissances de base du Bureau
+-*.bitmap:       @prefix@/appconfig/help/fr_FR.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/fr_FR.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Généralités et Connaissances de base du Bureau CDE
+ 
+ *.volumes:  \
+diff --git a/doc/it_IT.UTF-8/help/common/Desktop.hf.in b/doc/it_IT.UTF-8/help/common/Desktop.hf.in
+index ad3fdee70..65dee422f 100644
+--- a/doc/it_IT.UTF-8/help/common/Desktop.hf.in
++++ b/doc/it_IT.UTF-8/help/common/Desktop.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Common Desktop Environment
+-*.bitmap:       @prefix@/appconfig/help/it_IT.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/it_IT.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Introduzione alle funzioni principali del desktop \
+  * Uso dell'aiuto \
+  * Gestione di applicazioni \
+diff --git a/doc/it_IT.UTF-8/help/common/DesktopIntro.hf.in b/doc/it_IT.UTF-8/help/common/DesktopIntro.hf.in
+index 17b6d73df..0db7be32e 100644
+--- a/doc/it_IT.UTF-8/help/common/DesktopIntro.hf.in
++++ b/doc/it_IT.UTF-8/help/common/DesktopIntro.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      UTF-8
+ *.title:        Introduzione alle funzioni principali del desktop
+-*.bitmap:       @prefix@/appconfig/help/it_IT.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/it_IT.UTF-8/graphics/cdelogo.pm
+ *.abstract:     Introduzione alle funzioni principali del \
+                 Common Desktop Environment.
+ 
+diff --git a/doc/ja_JP.UTF-8/help/common/Desktop.hf.in b/doc/ja_JP.UTF-8/help/common/Desktop.hf.in
+index dcfc80e50..467412f74 100644
+--- a/doc/ja_JP.UTF-8/help/common/Desktop.hf.in
++++ b/doc/ja_JP.UTF-8/help/common/Desktop.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      ja_JP.UTF-8
+ *.title:        共通デスクトップ環境
+-*.bitmap:       @prefix@/appconfig/help/ja_JP.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/ja_JP.UTF-8/graphics/cdelogo.pm
+ *.abstract:     概要と基本的なデスクトップのスキル \
+  * ヘルプの使い方 \
+  * アプリケーション・ビルダ \
+diff --git a/doc/ja_JP.UTF-8/help/common/DesktopIntro.hf.in b/doc/ja_JP.UTF-8/help/common/DesktopIntro.hf.in
+index 141085f79..0f461948c 100644
+--- a/doc/ja_JP.UTF-8/help/common/DesktopIntro.hf.in
++++ b/doc/ja_JP.UTF-8/help/common/DesktopIntro.hf.in
+@@ -16,7 +16,7 @@
+ 
+ *.charSet:      ja_JP.UTF-8
+ *.title:        概要と基本的なデスクトップのスキル
+-*.bitmap:       @prefix@/appconfig/help/ja_JP.UTF-8/graphics/cdelogo.pm
++*.bitmap:       @CDE_DATA_TOP@/appconfig/help/ja_JP.UTF-8/graphics/cdelogo.pm
+ *.abstract:     共通デスクトップ環境の \
+                 概要と基本的なデスクトップのスキル
+ 

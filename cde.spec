@@ -78,6 +78,13 @@ Patch11:        0012-fhs-followup-makefile-defines.patch
 # inherits the 0644 mode; without this dtfile opens them in dtpad instead of
 # launching the action. Patches the appmgr.am template to chmod +x.
 Patch12:        0013-appmgr-make-action-files-executable.patch
+# Help Manager .hf families pointed *.bitmap at @prefix@/appconfig/help/...
+# which with --prefix=/usr resolves to /usr/appconfig/help/.../cdelogo.pm
+# (does not exist), so dthelpview renders "Missing Graphics" beside the
+# "Common Desktop Environment" and "Overview and Basic Desktop Skills"
+# section headers. Route the path through @CDE_DATA_TOP@ like every other
+# data-tree reference.
+Patch13:        0014-help-hf-bitmap-paths.patch
 
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc
@@ -435,7 +442,7 @@ fi
 %{_datadir}/cde/backdrops
 %{_datadir}/cde/dtdocbook
 %{_datadir}/cde/fontaliases
-%{_datadir}/cde/infolib
+# infolib is owned by the cde-doc subpackage
 %{_datadir}/cde/palettes
 # /usr/share/cde/share/{backdrops,palettes}/desc.<LANG> -- description files
 # from a separate Makefile; the actual .pm/.bm and .dp data lives under the

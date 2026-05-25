@@ -29,6 +29,7 @@ Layout
     0011-tttypes-fhs-dtinfo-ptype-paths.patch
     0012-fhs-followup-makefile-defines.patch
     0013-appmgr-make-action-files-executable.patch
+    0014-help-hf-bitmap-paths.patch
     build-srpm.sh                   # SRPM/RPM build driver
 
 Subpackages produced
@@ -155,7 +156,7 @@ To go back to gdm:
 Patches
 -------
 
-All thirteen patches apply on top of upstream master. The first two are
+All fourteen patches apply on top of upstream master. The first two are
 narrow build fixes; the rest implement and finish the FHS migration
 plus a handful of first-boot fixups.
 
@@ -217,9 +218,18 @@ plus a handful of first-boot fixups.
     treats the file as an action if the execute bit is set; without
     this, double-click opens it in dtpad instead of launching the
     action. Adds `chmod +x` to the build rule in
-    `programs/localized/templates/appmgr.am`.
+    `programs/localized/templates/appmgr.am`, and prepends a
+    `#!/bin/sh` shebang to `programs/types/action` so Fedora's
+    `brp-mangle-shebangs` doesn't strip the exec bit back off during
+    rpm packaging.
+  * **0014** -- route the Help Manager `.hf` family `*.bitmap:` paths
+    through `@CDE_DATA_TOP@` instead of `@prefix@`. With `--prefix=/usr`
+    the latter expands to `/usr/appconfig/help/.../cdelogo.pm` (which
+    doesn't exist), so dthelpview shows "Missing Graphics" beside the
+    "Common Desktop Environment" and "Overview and Basic Desktop
+    Skills" section headers.
 
 Patches 0001–0002 are good upstream candidates and can be dropped once
-merged. Patches 0003–0013 are the FHS conversion and a handful of
+merged. Patches 0003–0014 are the FHS conversion and a handful of
 build-time fixups; they would either need to land upstream as a
 series or stay carried here.
