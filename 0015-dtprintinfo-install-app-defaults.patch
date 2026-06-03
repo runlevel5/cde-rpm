@@ -1,0 +1,122 @@
+From: Trung Lê <8@tle.id.au>
+Subject: dtprintinfo: install its app-defaults so help/About pane is white
+
+Print Manager's (dtprintinfo) Help and "About" dialogs render their text in a
+DtHelpDialog DisplayArea that should have a white background -- the printed-page
+look every CDE help viewer uses (e.g. dtpad). Instead it inherits the desktop
+palette color. SourceForge ticket #197.
+
+The white DisplayArea override lives in the shared Dt resources (Dt.ad ->
+app-defaults/<lang>/Dt) and is pulled into each app via "#include \"Dt\"" at the
+top of that app's app-defaults file. dtpad's app-defaults does this; so does the
+dtprintinfo source app-defaults (programs/dtprintinfo/Dtprintinfo, which is just
+a header plus #include "Dt").
+
+The bug: nothing ever builds or installs that Dtprintinfo file. The app-defaults
+build list in programs/localized/templates/app-defaults.am omits Dtprintinfo, so
+no app-defaults/<lang>/Dtprintinfo is produced. At runtime dtprintinfo (app class
+"Dtprintinfo") therefore loads no app-defaults at all, never #includes "Dt", and
+its help DisplayArea falls back to the palette *background.
+
+This was misdiagnosed upstream as an XmDialogShell-vs-TransientShell resource
+scoping problem in Dt.ad. It is not: dtprintinfo's help dialog is wrapped in an
+XmDialogShell exactly like dtpad's (verified by building the widget tree), and
+the existing Dt.ad rules match it fine once they are actually loaded.
+
+Fix: wire Dtprintinfo into the app-defaults build like every other app -- add it
+to BUILT_SOURCES, add the merge rule, and add a (string-free) Dtprintinfo.tmsg
+for each shipped locale. The merged file keeps the #include "Dt", which Xrm
+expands at load time, so dtprintinfo picks up the white help DisplayArea.
+
+diff --git a/programs/localized/C/app-defaults/Dtprintinfo.tmsg b/programs/localized/C/app-defaults/Dtprintinfo.tmsg
+new file mode 100644
+index 000000000..d714db917
+--- /dev/null
++++ b/programs/localized/C/app-defaults/Dtprintinfo.tmsg
+@@ -0,0 +1,6 @@
++$ Dtprintinfo.tmsg
++$ The Dtprintinfo app-defaults file has no translatable strings: it only
++$ does #include "Dt" so Print Manager inherits the shared Dt resources
++$ (notably the white help DisplayArea background). This message file exists
++$ so the build produces and installs a Dtprintinfo app-defaults at all.
++$set 1
+diff --git a/programs/localized/de_DE.UTF-8/app-defaults/Dtprintinfo.tmsg b/programs/localized/de_DE.UTF-8/app-defaults/Dtprintinfo.tmsg
+new file mode 100644
+index 000000000..d714db917
+--- /dev/null
++++ b/programs/localized/de_DE.UTF-8/app-defaults/Dtprintinfo.tmsg
+@@ -0,0 +1,6 @@
++$ Dtprintinfo.tmsg
++$ The Dtprintinfo app-defaults file has no translatable strings: it only
++$ does #include "Dt" so Print Manager inherits the shared Dt resources
++$ (notably the white help DisplayArea background). This message file exists
++$ so the build produces and installs a Dtprintinfo app-defaults at all.
++$set 1
+diff --git a/programs/localized/es_ES.UTF-8/app-defaults/Dtprintinfo.tmsg b/programs/localized/es_ES.UTF-8/app-defaults/Dtprintinfo.tmsg
+new file mode 100644
+index 000000000..d714db917
+--- /dev/null
++++ b/programs/localized/es_ES.UTF-8/app-defaults/Dtprintinfo.tmsg
+@@ -0,0 +1,6 @@
++$ Dtprintinfo.tmsg
++$ The Dtprintinfo app-defaults file has no translatable strings: it only
++$ does #include "Dt" so Print Manager inherits the shared Dt resources
++$ (notably the white help DisplayArea background). This message file exists
++$ so the build produces and installs a Dtprintinfo app-defaults at all.
++$set 1
+diff --git a/programs/localized/fr_FR.UTF-8/app-defaults/Dtprintinfo.tmsg b/programs/localized/fr_FR.UTF-8/app-defaults/Dtprintinfo.tmsg
+new file mode 100644
+index 000000000..d714db917
+--- /dev/null
++++ b/programs/localized/fr_FR.UTF-8/app-defaults/Dtprintinfo.tmsg
+@@ -0,0 +1,6 @@
++$ Dtprintinfo.tmsg
++$ The Dtprintinfo app-defaults file has no translatable strings: it only
++$ does #include "Dt" so Print Manager inherits the shared Dt resources
++$ (notably the white help DisplayArea background). This message file exists
++$ so the build produces and installs a Dtprintinfo app-defaults at all.
++$set 1
+diff --git a/programs/localized/it_IT.UTF-8/app-defaults/Dtprintinfo.tmsg b/programs/localized/it_IT.UTF-8/app-defaults/Dtprintinfo.tmsg
+new file mode 100644
+index 000000000..d714db917
+--- /dev/null
++++ b/programs/localized/it_IT.UTF-8/app-defaults/Dtprintinfo.tmsg
+@@ -0,0 +1,6 @@
++$ Dtprintinfo.tmsg
++$ The Dtprintinfo app-defaults file has no translatable strings: it only
++$ does #include "Dt" so Print Manager inherits the shared Dt resources
++$ (notably the white help DisplayArea background). This message file exists
++$ so the build produces and installs a Dtprintinfo app-defaults at all.
++$set 1
+diff --git a/programs/localized/ja_JP.UTF-8/app-defaults/Dtprintinfo.tmsg b/programs/localized/ja_JP.UTF-8/app-defaults/Dtprintinfo.tmsg
+new file mode 100644
+index 000000000..d714db917
+--- /dev/null
++++ b/programs/localized/ja_JP.UTF-8/app-defaults/Dtprintinfo.tmsg
+@@ -0,0 +1,6 @@
++$ Dtprintinfo.tmsg
++$ The Dtprintinfo app-defaults file has no translatable strings: it only
++$ does #include "Dt" so Print Manager inherits the shared Dt resources
++$ (notably the white help DisplayArea background). This message file exists
++$ so the build produces and installs a Dtprintinfo app-defaults at all.
++$set 1
+diff --git a/programs/localized/templates/app-defaults.am b/programs/localized/templates/app-defaults.am
+index 4bae23aee..2f586cc97 100644
+--- a/programs/localized/templates/app-defaults.am
++++ b/programs/localized/templates/app-defaults.am
+@@ -4,7 +4,7 @@
+ 
+ BUILT_SOURCES = Dthelpview Dtimsstart Dtlogin Dthello Dtsession		\
+ 	Dtscreen Dtwm Dtfile Dtstyle Dtpad Dticon Dtcreate Dtcalc	\
+-	Dtcm Dtterm Dtmail Dtbuilder Dtudcfonted Dt Dtinfo
++	Dtcm Dtterm Dtmail Dtbuilder Dtudcfonted Dt Dtinfo Dtprintinfo
+ 
+ CLEANFILES = $(BUILT_SOURCES)
+ 
+@@ -76,3 +76,6 @@ Dtudcfonted: $(TOP)/dtudcfonted/resource/Dtudcfonted Dtudcfonted.tmsg
+ Dt: $(DTSVCSRC)/DtUtil2/Dt.ad Dt.tmsg
+ 	$(MERGE) -lang $(LANG) $@.tmsg < $< > $@ || $(RM) $@
+ 
++Dtprintinfo: $(TOP)/dtprintinfo/Dtprintinfo Dtprintinfo.tmsg
++	$(MERGE) -lang $(LANG) $@.tmsg < $< > $@ || $(RM) $@
++

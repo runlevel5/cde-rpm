@@ -86,6 +86,19 @@ Patch12:        0013-appmgr-make-action-files-executable.patch
 # data-tree reference.
 Patch13:        0014-help-hf-bitmap-paths.patch
 
+# Print Manager's (dtprintinfo) Help/About text pane should be white like every
+# other CDE help viewer, but it inherits the desktop palette. The white help
+# DisplayArea override lives in the shared Dt resources and is pulled into each
+# app via #include "Dt" at the top of that app's app-defaults file. dtprintinfo
+# has such a source app-defaults (programs/dtprintinfo/Dtprintinfo) but nothing
+# builds or installs it -- it is missing from the app-defaults BUILT_SOURCES
+# list -- so dtprintinfo loads no app-defaults, never #includes Dt, and its help
+# pane falls back to the palette. (Upstream #197 misdiagnosed this as an
+# XmDialogShell/TransientShell resource-scoping issue in Dt.ad; the shell is in
+# fact XmDialogShell as in dtpad.) Fix wires Dtprintinfo into the app-defaults
+# build with a string-free .tmsg per locale. SourceForge ticket #197.
+Patch14:        0015-dtprintinfo-install-app-defaults.patch
+
 # Build prerequisites: see configure.ac AC_CHECK_LIB / AC_PATH_PROG list
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
