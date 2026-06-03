@@ -400,8 +400,11 @@ fi
 /sbin/ldconfig
 %systemd_postun_with_restart dtlogin.service rpc.cmsd.service
 
-%post libs -p /sbin/ldconfig
-%postun libs -p /sbin/ldconfig
+%post libs
+/sbin/ldconfig
+
+%postun libs
+/sbin/ldconfig
 
 # -----------------------------------------------------------------------------
 %files
