@@ -16,7 +16,6 @@ Layout
     cde.desktop                     # /usr/share/xsessions/ entry
     ld.so.conf-cde.conf             # placeholder ld.so.conf.d hook
     README.Fedora                   # installed in the doc subpackage
-    0001-fproto-drop-strstr-redeclaration.patch
     0002-include-config-h-stub-for-motif.patch
     0003-configure-make-cde-paths-overridable.patch
     0004-cleanup-cc-literals-use-cde-macros.patch
@@ -160,10 +159,6 @@ All fourteen patches apply on top of upstream master. The first two are
 narrow build fixes; the rest implement and finish the FHS migration
 plus a handful of first-boot fixups.
 
-  * **0001** -- remove a K&R-era redeclaration of `strstr()` in
-    `programs/dthelp/parser/pass2/htag2/fproto.h`. Glibc declares
-    `strstr` via `_Generic` in `<string.h>` and the redeclaration
-    breaks parsing.
   * **0002** -- add `include/config.h` that forwards to
     `cde_config.h`. Fedora's motif-devel ships private headers
     (`Xm/DisplayP.h` etc.) that do `#ifdef HAVE_CONFIG_H #include
@@ -229,7 +224,3 @@ plus a handful of first-boot fixups.
     "Common Desktop Environment" and "Overview and Basic Desktop
     Skills" section headers.
 
-Patches 0001–0002 are good upstream candidates and can be dropped once
-merged. Patches 0003–0014 are the FHS conversion and a handful of
-build-time fixups; they would either need to land upstream as a
-series or stay carried here.

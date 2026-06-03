@@ -29,9 +29,6 @@ Source4:        ld.so.conf-cde.conf
 Source5:        README.Fedora
 Source6:        rpc.cmsd.service
 
-# Drop the K&R-era strstr() redeclaration in dthelp/htag2 that conflicts
-# with glibc's _Generic-based <string.h> declaration.
-Patch0:         0001-fproto-drop-strstr-redeclaration.patch
 # Add an include/config.h stub that forwards to cde_config.h, so Motif's
 # private headers (Xm/DisplayP.h etc.) can resolve <config.h>.
 Patch1:         0002-include-config-h-stub-for-motif.patch
