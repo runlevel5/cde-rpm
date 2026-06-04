@@ -23,7 +23,6 @@ Layout
     0006-contrib-convert-to-autoconf-in-files.patch
     0007-util-add-check-fhs-validation.patch
     0008-split-data-top-and-finish-dt-conversion.patch
-    0009-dt-disable-motif-color-object.patch
     0010-fhs-finish-dtinfo-and-data-dirs.patch
     0011-tttypes-fhs-dtinfo-ptype-paths.patch
     0012-fhs-followup-makefile-defines.patch
@@ -182,11 +181,6 @@ plus a handful of first-boot fixups.
     (arch-independent data goes to `/usr/share/cde`, binaries stay
     under `/usr`) and rename `dt{mail,cm}.dt` to `.src` so they get
     `tradcpp`-substituted.
-  * **0009** -- set Motif `*useColorObj:False` globally. Without this,
-    dtsession deadlocks on a color-object selection during widget
-    Initialize on Motif 2.3.x; every other CDE client survives but
-    pays a 5 s libXt selection timeout per widget, making logins
-    glacial.
   * **0010** -- finish the FHS migration for dtinfo and the data-only
     directories: fix the second `InfoLibSearchPath` copy of `/usr/dt`
     missed by Patch0008, and drop the `/share/` infix plus legacy
@@ -206,7 +200,6 @@ plus a handful of first-boot fixups.
     `-DCDE_CONFIGURATION_TOP="${prefix}"` (a pre-existing upstream
     typo) which pinned dtspcd's SPC config dir to `PREFIX/config`
     instead of honoring `--with-cde-config-dir`.
-
   * **0013** -- make Application Manager action files executable. The
     upstream build copies `programs/types/action` (mode 0644) into
     each appmgr entry (e.g. `Desktop_Apps/Dtcalc`), and dtfile only
@@ -223,4 +216,3 @@ plus a handful of first-boot fixups.
     doesn't exist), so dthelpview shows "Missing Graphics" beside the
     "Common Desktop Environment" and "Overview and Basic Desktop
     Skills" section headers.
-

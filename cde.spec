@@ -46,11 +46,6 @@ Patch5:         0006-contrib-convert-to-autoconf-in-files.patch
 Patch6:         0007-util-add-check-fhs-validation.patch
 # Split CDE_DATA_TOP from CDE_INSTALLATION_TOP; rename dt{mail,cm}.dt to .src.
 Patch7:         0008-split-data-top-and-finish-dt-conversion.patch
-# Dt: set *useColorObj:False globally to avoid the Motif 2.3.x color-object
-# deadlock during widget Initialize. dtsession itself hangs (loading screen,
-# no dtwm); every other CDE client survives but pays a 5s libXt selection
-# timeout per Motif widget, making dtwm/dtfile/dtmail logins glacial.
-Patch8:         0009-dt-disable-motif-color-object.patch
 # Finish the FHS migration for dtinfo and the data-only directories:
 # fix the second InfoLibSearchPath copy of /usr/dt missed by Patch0008,
 # and drop the /share/ infix + legacy compat symlinks from
